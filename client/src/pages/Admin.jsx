@@ -1,0 +1,434 @@
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { useAuth } from '../context/AuthContext.jsx';
+import Sidebar from '../components/Sidebar.jsx';
+import LeadCard from '../components/LeadCard.jsx';
+import StatsRow from '../components/StatsRow.jsx';
+
+const TABS = [
+  { key: 'leads',          label: 'All Leads',      icon: '📋' },
+  { key: 'add-lead',       label: 'Add Lead',        icon: '➕' },
+  { key: 'subscribers',    label: 'Subscribers',     icon: '👥' },
+  { key: 'add-subscriber', label: 'Add Subscriber',  icon: '👤' },
+  { key: 'markets',        label: 'Markets',         icon: '🗺️' }
+];
+
+const JOB_TYPES = ['Garage', 'Estate', 'Appliance', 'Commercial'];
+
+export default function Admin() {
+  const { token } = useAuth();
+  const [activeTab, setActiveTab] = useState('leads');
+  const [leads, setLeads] = useState([]);
+  const [subscribers, setSubscribers] = useState([]);
+  const [markets, setMarkets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const [leadForm, setLeadForm] = useState({
+    name: '', phone: '', email: '', city: '', state: '',
+    jobType: '', description: '', market: ''
+  });
+  const [subForm, setSubForm] = useState({
+    name: '', email: '', password: '', market: ''
+  });
+  const [marketForm, setMarketForm] = useState({ name: '', cities: '' });
+
+  const [formMsg, setFormMsg] = useState({ type: '', text: '' });
+
+  const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
+
+  // ─── Load data ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    Promise.all([
+      axios.get('/api/admin/leads', authHeaders),
+      axios.get('/api/admin/subscribers', authHeaders),
+      axios.get('/api/admin/markets', authHeaders)
+    ])
+      .then(([leadsRes, subsRes, marketsRes]) => {
+        setLeads(leadsRes.data);
+        setSubscribers(subsRes.data);
+        setMarkets(marketsRes.data);
+      })
+      .catch(err => console.error('[Admin] Load error:', err.message))
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  const showMsg = (type, text) => {
+    setFormMsg({ type, text });
+    setTimeout(() => setFormMsg({ type: '', text: '' }), 4000);
+  };
+
+  // ─── Create lead ──────────────────────────────────────────────────────────
+  const handleCreateLead = async (e) => {
+    e.preventDefault();
+    try {
+      const { data } = await axios.post('/api/admin/leads', leadForm, authHeaders);
+      setLeads(prev => [data, ...prev]);
+      setLeadForm({ name: '', phone: '', email: '', city: '', state: '', jobType: '', description: '', market: '' });
+      showMsg('success', `Lead created for ${data.name}`);
+    } catch (err) {
+      showMsg('error', err.response?.data?.error || 'Failed to create lead');
+    }
+  };
+
+  // ─── Create subscriber ────────────────────────────────────────────────────
+  const handleCreateSubscriber = async (e) => {
+    e.preventDefault();
+    try {
+      const { data } = await axios.post('/api/admin/subscribers', subForm, authHeaders);
+      setSubscribers(prev => [...prev, data]);
+      setSubForm({ name: '', email: '', password: '', market: '' });
+      showMsg('success', `Subscriber ${data.email} created`);
+    } catch (err) {
+      showMsg('error', err.response?.data?.error || 'Failed to create subscriber');
+    }
+  };
+
+  // ─── Create market ────────────────────────────────────────────────────────
+  const handleCreateMarket = async (e) => {
+    e.preventDefault();
+    try {
+      const { data } = await axios.post('/api/admin/markets', marketForm, authHeaders);
+      setMarkets(prev => [...prev, data]);
+      setMarketForm({ name: '', cities: '' });
+      showMsg('success', `Market "${data.name}" created`);
+    } catch (err) {
+      showMsg('error', err.response?.data?.error || 'Failed to create market');
+    }
+  };
+
+  const handleLeadStatusChange = (leadId, newStatus) => {
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus } : l));
+  };
+
+  const inputClass = "w-full bg-bg border border-subtle rounded-xl px-4 py-2.5 text-white text-sm placeholder-muted focus:outline-none focus:border-accent transition-colors";
+  const selectClass = `${inputClass} appearance-none`;
+
+  return (
+    <div className="flex min-h-screen bg-bg">
+      {/* Desktop spacer */}
+      <div className="hidden md:block w-64 flex-shrink-0" />
+
+      {/* Sidebar */}
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      {/* Main content */}
+      <main className="flex-1 min-w-0 flex flex-col">
+
+        {/* Mobile header */}
+        <div className="md:hidden flex items-center gap-3 px-4 py-3.5 border-b border-subtle bg-surface sticky top-0 z-30">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="text-muted hover:text-white p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <rect x="2" y="4" width="16" height="2" rx="1" fill="currentColor"/>
+              <rect x="2" y="9" width="16" height="2" rx="1" fill="currentColor"/>
+              <rect x="2" y="14" width="16" height="2" rx="1" fill="currentColor"/>
+            </svg>
+          </button>
+          <h1 className="font-heading font-bold text-lg">
+            <span className="text-white">Legen</span><span className="text-accent">ly</span>
+          </h1>
+        </div>
+
+        <div className="flex-1 px-4 md:px-8 py-6 md:py-8">
+          <div className="max-w-5xl mx-auto">
+
+            {/* Header */}
+            <div className="mb-8">
+              <h2 className="font-heading text-2xl md:text-3xl font-bold text-white">Admin Panel</h2>
+              <p className="text-muted text-sm mt-1">Manage leads, subscribers, and markets</p>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex gap-2 mb-8 flex-wrap">
+              {TABS.map(({ key, label, icon }) => (
+                <button
+                  key={key}
+                  onClick={() => { setActiveTab(key); setFormMsg({ type: '', text: '' }); }}
+                  className={[
+                    'flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm transition-all font-medium',
+                    activeTab === key
+                      ? 'bg-accent text-bg font-semibold'
+                      : 'bg-surface border border-subtle text-muted hover:text-white'
+                  ].join(' ')}
+                >
+                  <span>{icon}</span>
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Form feedback */}
+            {formMsg.text && (
+              <div className={[
+                'mb-6 px-4 py-3 rounded-xl border text-sm',
+                formMsg.type === 'success'
+                  ? 'bg-accent/10 border-accent/30 text-accent'
+                  : 'bg-red-950/40 border-red-500/30 text-red-400'
+              ].join(' ')}>
+                {formMsg.text}
+              </div>
+            )}
+
+            {loading ? (
+              <div className="flex justify-center py-24">
+                <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent spin" />
+              </div>
+            ) : (
+              <>
+                {/* ── ALL LEADS ── */}
+                {activeTab === 'leads' && (
+                  <>
+                    <StatsRow leads={leads} />
+                    {leads.length === 0 ? (
+                      <p className="text-muted text-center py-12">No leads yet. Add one using the "Add Lead" tab.</p>
+                    ) : (
+                      <div className="flex flex-col gap-4">
+                        {leads.map(lead => (
+                          <div key={lead.id}>
+                            <span className="text-xs text-muted px-1 mb-1 block">
+                              Market: <span className="text-accent">{lead.market}</span>
+                            </span>
+                            <LeadCard
+                              lead={lead}
+                              token={token}
+                              onStatusChange={handleLeadStatusChange}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* ── ADD LEAD ── */}
+                {activeTab === 'add-lead' && (
+                  <div className="max-w-xl">
+                    <div className="bg-surface border border-subtle rounded-2xl p-6 md:p-8">
+                      <h3 className="font-heading text-xl font-semibold mb-6 text-white">Create New Lead</h3>
+                      <form onSubmit={handleCreateLead} className="space-y-4">
+                        <input
+                          className={inputClass}
+                          placeholder="Full Name *"
+                          required
+                          value={leadForm.name}
+                          onChange={e => setLeadForm(p => ({ ...p, name: e.target.value }))}
+                        />
+                        <div className="grid grid-cols-2 gap-3">
+                          <input
+                            className={inputClass}
+                            placeholder="Phone"
+                            value={leadForm.phone}
+                            onChange={e => setLeadForm(p => ({ ...p, phone: e.target.value }))}
+                          />
+                          <input
+                            className={inputClass}
+                            placeholder="Email"
+                            type="email"
+                            value={leadForm.email}
+                            onChange={e => setLeadForm(p => ({ ...p, email: e.target.value }))}
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <input
+                            className={inputClass}
+                            placeholder="City"
+                            value={leadForm.city}
+                            onChange={e => setLeadForm(p => ({ ...p, city: e.target.value }))}
+                          />
+                          <input
+                            className={inputClass}
+                            placeholder="State (e.g. GA)"
+                            value={leadForm.state}
+                            onChange={e => setLeadForm(p => ({ ...p, state: e.target.value }))}
+                          />
+                        </div>
+                        <select
+                          className={selectClass}
+                          value={leadForm.jobType}
+                          onChange={e => setLeadForm(p => ({ ...p, jobType: e.target.value }))}
+                        >
+                          <option value="">Job Type</option>
+                          {JOB_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                        <select
+                          className={selectClass}
+                          required
+                          value={leadForm.market}
+                          onChange={e => setLeadForm(p => ({ ...p, market: e.target.value }))}
+                        >
+                          <option value="">Assign to Market *</option>
+                          {markets.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                        </select>
+                        <textarea
+                          className={`${inputClass} h-24 resize-none`}
+                          placeholder="Job description..."
+                          value={leadForm.description}
+                          onChange={e => setLeadForm(p => ({ ...p, description: e.target.value }))}
+                        />
+                        <button
+                          type="submit"
+                          className="w-full bg-accent hover:bg-accent-dim text-bg font-heading font-bold py-3.5 rounded-xl transition-colors text-sm tracking-wide"
+                        >
+                          Create Lead →
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── SUBSCRIBERS ── */}
+                {activeTab === 'subscribers' && (
+                  <div className="overflow-x-auto">
+                    {subscribers.length === 0 ? (
+                      <p className="text-muted text-center py-12">No subscribers yet.</p>
+                    ) : (
+                      <table className="w-full text-sm min-w-[600px]">
+                        <thead>
+                          <tr className="border-b border-subtle text-muted">
+                            <th className="text-left py-3 pr-4 font-medium">Name</th>
+                            <th className="text-left py-3 pr-4 font-medium">Email</th>
+                            <th className="text-left py-3 pr-4 font-medium">Market</th>
+                            <th className="text-left py-3 font-medium">Joined</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {subscribers.map(sub => (
+                            <tr key={sub.id} className="border-b border-subtle/50 hover:bg-surface/60 transition-colors">
+                              <td className="py-3 pr-4 text-white font-medium">{sub.name || '—'}</td>
+                              <td className="py-3 pr-4 text-muted">{sub.email}</td>
+                              <td className="py-3 pr-4">
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 border border-accent/20 text-accent">
+                                  {sub.market || 'Unassigned'}
+                                </span>
+                              </td>
+                              <td className="py-3 text-muted">
+                                {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString() : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                )}
+
+                {/* ── ADD SUBSCRIBER ── */}
+                {activeTab === 'add-subscriber' && (
+                  <div className="max-w-xl">
+                    <div className="bg-surface border border-subtle rounded-2xl p-6 md:p-8">
+                      <h3 className="font-heading text-xl font-semibold mb-6 text-white">Add Subscriber</h3>
+                      <form onSubmit={handleCreateSubscriber} className="space-y-4">
+                        <input
+                          className={inputClass}
+                          placeholder="Full Name"
+                          value={subForm.name}
+                          onChange={e => setSubForm(p => ({ ...p, name: e.target.value }))}
+                        />
+                        <input
+                          className={inputClass}
+                          placeholder="Email *"
+                          type="email"
+                          required
+                          value={subForm.email}
+                          onChange={e => setSubForm(p => ({ ...p, email: e.target.value }))}
+                        />
+                        <input
+                          className={inputClass}
+                          placeholder="Password *"
+                          type="password"
+                          required
+                          value={subForm.password}
+                          onChange={e => setSubForm(p => ({ ...p, password: e.target.value }))}
+                        />
+                        <select
+                          className={selectClass}
+                          value={subForm.market}
+                          onChange={e => setSubForm(p => ({ ...p, market: e.target.value }))}
+                        >
+                          <option value="">Assign to Market (optional)</option>
+                          {markets.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                        </select>
+                        <button
+                          type="submit"
+                          className="w-full bg-accent hover:bg-accent-dim text-bg font-heading font-bold py-3.5 rounded-xl transition-colors text-sm tracking-wide"
+                        >
+                          Add Subscriber →
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── MARKETS ── */}
+                {activeTab === 'markets' && (
+                  <div className="space-y-6">
+                    {/* Existing markets */}
+                    <div className="grid gap-4">
+                      {markets.length === 0 ? (
+                        <p className="text-muted">No markets yet.</p>
+                      ) : (
+                        markets.map(market => (
+                          <div
+                            key={market.id}
+                            className="bg-surface border border-subtle rounded-xl p-5"
+                          >
+                            <div className="flex items-center justify-between gap-4 flex-wrap">
+                              <h4 className="font-heading font-semibold text-white">{market.name}</h4>
+                              <span className="text-xs text-muted">
+                                {market.subscriberCount || 0} subscriber{market.subscriberCount !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              {market.cities.split(',').map(city => (
+                                <span
+                                  key={city}
+                                  className="text-xs px-2.5 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent"
+                                >
+                                  {city.trim()}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Add market form */}
+                    <div className="bg-surface border border-subtle rounded-2xl p-6 max-w-xl">
+                      <h3 className="font-heading text-lg font-semibold mb-5 text-white">Add New Market</h3>
+                      <form onSubmit={handleCreateMarket} className="space-y-4">
+                        <input
+                          className={inputClass}
+                          placeholder="Market Name (e.g. Forsyth County GA) *"
+                          required
+                          value={marketForm.name}
+                          onChange={e => setMarketForm(p => ({ ...p, name: e.target.value }))}
+                        />
+                        <input
+                          className={inputClass}
+                          placeholder="Cities — comma separated (e.g. Cumming,Alpharetta)"
+                          required
+                          value={marketForm.cities}
+                          onChange={e => setMarketForm(p => ({ ...p, cities: e.target.value }))}
+                        />
+                        <button
+                          type="submit"
+                          className="w-full bg-accent hover:bg-accent-dim text-bg font-heading font-bold py-3 rounded-xl transition-colors text-sm"
+                        >
+                          Create Market
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
