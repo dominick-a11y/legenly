@@ -81,14 +81,14 @@ app.get('/api/health', (req, res) => {
 if (isProduction) {
   const distPath = path.join(__dirname, '../client/dist');
   app.use(express.static(distPath));
-  app.get('*', (req, res) => {
+  app.get('*splat', (req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
   });
 }
 
 // ─── Start server ────────────────────────────────────────────────────────────
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n  ██╗     ███████╗ ██████╗ ███████╗███╗   ██╗██╗  ██╗`);
   console.log(`  ██║     ██╔════╝██╔════╝ ██╔════╝████╗  ██║██║  ██║`);
   console.log(`  ██║     █████╗  ██║  ███╗█████╗  ██╔██╗ ██║███████║`);
