@@ -65,6 +65,10 @@ io.on('connection', (socket) => {
 // ─── Express middleware ──────────────────────────────────────────────────────
 
 app.use(cors({ origin: corsOrigin, credentials: true }));
+
+// Stripe webhook needs raw body BEFORE express.json() parses it
+app.use('/api/billing/webhook', require('./routes/billing'));
+
 app.use(express.json());
 
 // ─── Routes ─────────────────────────────────────────────────────────────────
@@ -75,6 +79,7 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/community', require('./routes/community'));
 app.use('/api/webhook', require('./routes/webhook'));
 app.use('/api/waitlist', require('./routes/waitlist'));
+app.use('/api/billing', require('./routes/billing'));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

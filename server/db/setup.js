@@ -117,6 +117,9 @@ function setup() {
   addColumnIfNotExists('posts', 'parentId', 'INTEGER');
   addColumnIfNotExists('posts', 'pinned', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('posts', 'likeCount', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('users', 'stripeCustomerId', 'TEXT');
+  addColumnIfNotExists('users', 'stripeSubscriptionId', 'TEXT');
+  addColumnIfNotExists('users', 'subscriptionStatus', "TEXT DEFAULT 'none'");
 
   const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
   if (userCount.count === 0) {
