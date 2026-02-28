@@ -168,7 +168,7 @@ export default function Dashboard() {
             </div>
 
             {/* Stats */}
-            {!loading {!loading && <StatsRow leads={leads} />}{!loading && <StatsRow leads={leads} />} <StatsRow leads={leads} market={user?.market} />}
+            {!loading && <StatsRow leads={leads} market={user?.market} />}
 
             {/* Filter tabs */}
             <div className="flex gap-2 mb-6 flex-wrap">
