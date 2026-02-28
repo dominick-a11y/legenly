@@ -80,6 +80,8 @@ function setup() {
   // Add new columns to existing tables if they don't exist
   addColumnIfNotExists('leads', 'assignedMarket', 'TEXT');
   addColumnIfNotExists('users', 'isFounder', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('users', 'phone', 'TEXT');
+  addColumnIfNotExists('users', 'jobFocus', 'TEXT');
   addColumnIfNotExists('markets', 'status', "TEXT DEFAULT 'available'");
 
   const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();

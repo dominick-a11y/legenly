@@ -235,6 +235,7 @@ export default function Admin() {
   const [marketForm, setMarketForm] = useState({ name: '', cities: '' });
 
   const [formMsg, setFormMsg] = useState({ type: '', text: '' });
+  const [leadsMarketFilter, setLeadsMarketFilter] = useState('');
   const [editSub, setEditSub] = useState(null);
   const [editSubForm, setEditSubForm] = useState({ name: '', email: '', market: '', password: '' });
   const [confirmDeleteSub, setConfirmDeleteSub] = useState(null);
@@ -409,29 +410,60 @@ export default function Admin() {
             ) : (
               <>
                 {/* ── ALL LEADS ── */}
-                {activeTab === 'leads' && (
-                  <>
-                    <StatsRow leads={leads} />
-                    {leads.length === 0 ? (
-                      <p className="text-muted text-center py-12">No leads yet. Add one using the "Add Lead" tab.</p>
-                    ) : (
-                      <div className="flex flex-col gap-4">
-                        {leads.map(lead => (
-                          <div key={lead.id}>
-                            <span className="text-xs text-muted px-1 mb-1 block">
-                              Market: <span className="text-accent">{lead.market}</span>
-                            </span>
-                            <LeadCard
-                              lead={lead}
-                              token={token}
-                              onStatusChange={handleLeadStatusChange}
-                            />
+                {activeTab === 'leads' && (() => {
+                  const displayedLeads = leadsMarketFilter
+                    ? leads.filter(l => l.market === leadsMarketFilter)
+                    : leads;
+                  const marketOptions = [...new Set(leads.map(l => l.market).filter(Boolean))].sort();
+                  return (
+                    <>
+                      <StatsRow leads={displayedLeads} />
+
+                      {/* Market filter */}
+                      {marketOptions.length > 1 && (
+                        <div className="flex items-center gap-3 mb-6">
+                          <label className="text-xs text-muted uppercase tracking-wide font-medium">Market:</label>
+                          <div className="flex gap-2 flex-wrap">
+                            <button
+                              onClick={() => setLeadsMarketFilter('')}
+                              className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${!leadsMarketFilter ? 'bg-accent text-bg' : 'bg-surface border border-subtle text-muted hover:text-white'}`}
+                            >
+                              All ({leads.length})
+                            </button>
+                            {marketOptions.map(m => (
+                              <button
+                                key={m}
+                                onClick={() => setLeadsMarketFilter(m)}
+                                className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${leadsMarketFilter === m ? 'bg-accent text-bg' : 'bg-surface border border-subtle text-muted hover:text-white'}`}
+                              >
+                                {m} ({leads.filter(l => l.market === m).length})
+                              </button>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
+                        </div>
+                      )}
+
+                      {displayedLeads.length === 0 ? (
+                        <p className="text-muted text-center py-12">No leads yet. Add one using the "Add Lead" tab.</p>
+                      ) : (
+                        <div className="flex flex-col gap-4">
+                          {displayedLeads.map(lead => (
+                            <div key={lead.id}>
+                              <span className="text-xs text-muted px-1 mb-1 block">
+                                Market: <span className="text-accent">{lead.market}</span>
+                              </span>
+                              <LeadCard
+                                lead={lead}
+                                token={token}
+                                onStatusChange={handleLeadStatusChange}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
 
                 {/* ── ADD LEAD ── */}
                 {activeTab === 'add-lead' && (

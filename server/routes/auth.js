@@ -40,13 +40,30 @@ router.get('/onboarding-status', requireAuth, (req, res) => {
   res.json({ dismissed: row ? row.dismissed === 1 : false });
 });
 
-// POST /api/auth/dismiss-onboarding
+// POST /api/auth/dismiss-onboarding — mark dismissed + optionally save phone/jobFocus
 router.post('/dismiss-onboarding', requireAuth, (req, res) => {
+  const { phone, jobFocus } = req.body || {};
+
+  if (phone !== undefined || jobFocus !== undefined) {
+    db.prepare(
+      'UPDATE users SET phone = COALESCE(?, phone), jobFocus = COALESCE(?, jobFocus) WHERE id = ?'
+    ).run(phone || null, jobFocus || null, req.user.id);
+  }
+
   db.prepare(`
     INSERT INTO onboarding (userId, dismissed, dismissedAt)
     VALUES (?, 1, datetime('now'))
     ON CONFLICT(userId) DO UPDATE SET dismissed = 1, dismissedAt = datetime('now')
   `).run(req.user.id);
+  res.json({ success: true });
+});
+
+// PUT /api/auth/profile — update name, phone, jobFocus for logged-in user
+router.put('/profile', requireAuth, (req, res) => {
+  const { name, phone, jobFocus } = req.body || {};
+  db.prepare(
+    'UPDATE users SET name = COALESCE(?, name), phone = COALESCE(?, phone), jobFocus = COALESCE(?, jobFocus) WHERE id = ?'
+  ).run(name || null, phone || null, jobFocus || null, req.user.id);
   res.json({ success: true });
 });
 

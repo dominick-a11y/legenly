@@ -2,14 +2,23 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { timeAgo } from './StatsRow.jsx';
 
+// SQLite stores "YYYY-MM-DD HH:MM:SS" without timezone — treat as UTC
+function parseLeadDate(ds) {
+  if (!ds) return new Date();
+  if (typeof ds === 'string' && !ds.includes('T') && !ds.includes('Z')) {
+    return new Date(ds.replace(' ', 'T') + 'Z');
+  }
+  return new Date(ds);
+}
+
 function useCallTimer(createdAt, status) {
-  const [elapsedMs, setElapsedMs] = useState(() => Date.now() - new Date(createdAt).getTime());
+  const [elapsedMs, setElapsedMs] = useState(() => Date.now() - parseLeadDate(createdAt).getTime());
 
   useEffect(() => {
     if (status !== 'new') return;
     const id = setInterval(() => {
-      setElapsedMs(Date.now() - new Date(createdAt).getTime());
-    }, 10000); // update every 10s
+      setElapsedMs(Date.now() - parseLeadDate(createdAt).getTime());
+    }, 10000);
     return () => clearInterval(id);
   }, [createdAt, status]);
 
@@ -47,6 +56,13 @@ function CallTimerBadge({ createdAt, status }) {
     </span>
   );
 }
+
+const JOB_VALUES = {
+  Garage:     { min: 300,  max: 600  },
+  Estate:     { min: 800,  max: 1500 },
+  Appliance:  { min: 150,  max: 300  },
+  Commercial: { min: 500,  max: 1200 },
+};
 
 const JOB_TYPE_COLORS = {
   Garage:     { bg: 'bg-blue-500/10',   border: 'border-blue-500/30',   text: 'text-blue-400' },
@@ -196,6 +212,16 @@ export default function LeadCard({ lead, token, onStatusChange }) {
         <p className="text-sm text-muted mt-3 leading-relaxed line-clamp-2">
           {lead.description}
         </p>
+      )}
+
+      {/* Estimated job value */}
+      {lead.jobType && JOB_VALUES[lead.jobType] && (
+        <div className="mt-2 flex items-center gap-1.5">
+          <span className="text-xs text-muted">Est. value:</span>
+          <span className="text-xs font-semibold text-accent font-mono">
+            ${JOB_VALUES[lead.jobType].min.toLocaleString()}–${JOB_VALUES[lead.jobType].max.toLocaleString()}
+          </span>
+        </div>
       )}
 
       {/* Action buttons */}

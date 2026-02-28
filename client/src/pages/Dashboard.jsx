@@ -22,6 +22,9 @@ export default function Dashboard() {
   const [notifications, setNotifications] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(1);
+  const [onboardPhone, setOnboardPhone] = useState('');
+  const [onboardJobFocus, setOnboardJobFocus] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [pushDenied, setPushDenied] = useState(false);
   const socketRef = useRef(null);
@@ -61,9 +64,19 @@ export default function Dashboard() {
 
   const dismissOnboarding = async () => {
     try {
-      await axios.post('/api/auth/dismiss-onboarding', {}, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.post(
+        '/api/auth/dismiss-onboarding',
+        { phone: onboardPhone || null, jobFocus: onboardJobFocus.length ? onboardJobFocus.join(',') : null },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
     } catch {}
     setShowOnboarding(false);
+  };
+
+  const toggleJobFocus = (type) => {
+    setOnboardJobFocus(prev =>
+      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
+    );
   };
 
   // ─── Socket.io real-time connection ──────────────────────────────────────
@@ -298,41 +311,118 @@ export default function Dashboard() {
       </main>
 
 
-      {/* Onboarding Modal */}
+      {/* Onboarding Modal — 2-step */}
       {showOnboarding && (
         <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center px-4">
           <div
-            className="bg-surface border border-subtle rounded-2xl p-8 max-w-md w-full text-center"
+            className="bg-surface border border-subtle rounded-2xl p-8 max-w-md w-full"
             style={{ boxShadow: '0 25px 60px rgba(0,0,0,0.7), 0 0 40px rgba(0,229,160,0.08)' }}
           >
-            <h1 className="font-heading text-3xl font-extrabold tracking-tight mb-2">
-              <span className="text-white">Legen</span><span className="text-accent">ly</span>
-            </h1>
-            <h2 className="font-heading text-xl font-bold text-white mt-4">
-              Welcome to Legenly, {user?.name?.split(' ')[0] || 'there'}
-            </h2>
-            <p className="text-muted text-sm mt-2">You now own exclusive lead rights to</p>
-            <p className="text-accent font-heading text-2xl font-bold mt-2">{user?.market}</p>
-
-            <ul className="mt-6 space-y-3 text-left">
-              {[
-                'Leads flow in automatically from our ad campaigns',
-                "You're the only operator in your territory",
-                'Call leads within 5 minutes for best results'
-              ].map(item => (
-                <li key={item} className="flex items-start gap-3 text-sm text-white">
-                  <span className="text-accent mt-0.5 flex-shrink-0">✓</span>
-                  <span>{item}</span>
-                </li>
+            {/* Step indicator */}
+            <div className="flex items-center gap-2 mb-6">
+              {[1, 2].map(s => (
+                <div
+                  key={s}
+                  className={`h-1 flex-1 rounded-full transition-colors ${onboardingStep >= s ? 'bg-accent' : 'bg-subtle'}`}
+                />
               ))}
-            </ul>
+            </div>
 
-            <button
-              onClick={dismissOnboarding}
-              className="mt-8 w-full bg-accent hover:bg-accent-dim text-bg font-heading font-bold py-4 rounded-xl transition-colors text-base tracking-wide"
-            >
-              Let's Go →
-            </button>
+            {/* Step 1 — Welcome */}
+            {onboardingStep === 1 && (
+              <div className="text-center">
+                <h1 className="font-heading text-3xl font-extrabold tracking-tight mb-2">
+                  <span className="text-white">Legen</span><span className="text-accent">ly</span>
+                </h1>
+                <h2 className="font-heading text-xl font-bold text-white mt-4">
+                  Welcome, {user?.name?.split(' ')[0] || 'there'} 👋
+                </h2>
+                <p className="text-muted text-sm mt-2">You own exclusive lead rights to</p>
+                <p className="text-accent font-heading text-2xl font-bold mt-1">{user?.market}</p>
+
+                <ul className="mt-6 space-y-3 text-left">
+                  {[
+                    ['⚡', 'Leads flow in automatically from our ad campaigns'],
+                    ['🔒', "You're the only operator in your territory — no competition"],
+                    ['📞', 'Call leads within 5 minutes for the highest close rate'],
+                    ['💰', 'Track your pipeline value right from your dashboard'],
+                  ].map(([icon, text]) => (
+                    <li key={text} className="flex items-start gap-3 text-sm text-white">
+                      <span className="flex-shrink-0">{icon}</span>
+                      <span>{text}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  onClick={() => setOnboardingStep(2)}
+                  className="mt-8 w-full bg-accent hover:bg-accent-dim text-bg font-heading font-bold py-4 rounded-xl transition-colors text-base tracking-wide"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+
+            {/* Step 2 — Collect info */}
+            {onboardingStep === 2 && (
+              <div>
+                <h2 className="font-heading text-xl font-bold text-white mb-1">Quick setup</h2>
+                <p className="text-muted text-sm mb-6">Help us personalize your experience</p>
+
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-xs text-muted uppercase tracking-wide font-medium mb-2">
+                      Best phone # for lead alerts
+                    </label>
+                    <input
+                      type="tel"
+                      placeholder="e.g. 770-555-0100"
+                      value={onboardPhone}
+                      onChange={e => setOnboardPhone(e.target.value)}
+                      className="w-full bg-bg border border-subtle rounded-xl px-4 py-3 text-white text-sm placeholder-muted focus:outline-none focus:border-accent transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-muted uppercase tracking-wide font-medium mb-2">
+                      Job types you focus on (select all that apply)
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['Garage', 'Estate', 'Appliance', 'Commercial'].map(type => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => toggleJobFocus(type)}
+                          className={[
+                            'px-4 py-2.5 rounded-xl border text-sm font-medium transition-all text-left',
+                            onboardJobFocus.includes(type)
+                              ? 'bg-accent/15 border-accent/40 text-accent'
+                              : 'bg-bg border-subtle text-muted hover:border-muted hover:text-white'
+                          ].join(' ')}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-8">
+                  <button
+                    onClick={() => setOnboardingStep(1)}
+                    className="px-4 py-3 text-muted hover:text-white border border-subtle rounded-xl text-sm transition-colors"
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    onClick={dismissOnboarding}
+                    className="flex-1 bg-accent hover:bg-accent-dim text-bg font-heading font-bold py-3 rounded-xl transition-colors text-sm tracking-wide"
+                  >
+                    Go to My Leads →
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
