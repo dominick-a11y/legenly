@@ -2,6 +2,52 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { timeAgo } from './StatsRow.jsx';
 
+function useCallTimer(createdAt, status) {
+  const [elapsedMs, setElapsedMs] = useState(() => Date.now() - new Date(createdAt).getTime());
+
+  useEffect(() => {
+    if (status !== 'new') return;
+    const id = setInterval(() => {
+      setElapsedMs(Date.now() - new Date(createdAt).getTime());
+    }, 10000); // update every 10s
+    return () => clearInterval(id);
+  }, [createdAt, status]);
+
+  return elapsedMs;
+}
+
+function CallTimerBadge({ createdAt, status }) {
+  const elapsedMs = useCallTimer(createdAt, status);
+  if (status !== 'new') return null;
+
+  const elapsedSec = Math.floor(elapsedMs / 1000);
+  const elapsedMin = Math.floor(elapsedSec / 60);
+
+  if (elapsedMin < 5) {
+    const remaining = 300 - elapsedSec; // 5 min = 300s
+    const mins = Math.floor(remaining / 60);
+    const secs = remaining % 60;
+    return (
+      <span className="text-xs px-2 py-0.5 rounded-full border bg-accent/10 border-accent/30 text-accent font-mono font-medium animate-pulse">
+        Call in {mins}:{String(secs).padStart(2, '0')}
+      </span>
+    );
+  }
+  if (elapsedMin < 60) {
+    return (
+      <span className="text-xs px-2 py-0.5 rounded-full border bg-red-500/15 border-red-500/40 text-red-400 font-medium">
+        ⚠ {elapsedMin}m old — Call Now
+      </span>
+    );
+  }
+  const hrs = Math.floor(elapsedMin / 60);
+  return (
+    <span className="text-xs px-2 py-0.5 rounded-full border bg-white/5 border-white/10 text-muted font-medium">
+      {hrs}h old
+    </span>
+  );
+}
+
 const JOB_TYPE_COLORS = {
   Garage:     { bg: 'bg-blue-500/10',   border: 'border-blue-500/30',   text: 'text-blue-400' },
   Estate:     { bg: 'bg-purple-500/10', border: 'border-purple-500/30', text: 'text-purple-400' },
@@ -102,6 +148,8 @@ export default function LeadCard({ lead, token, onStatusChange }) {
                 {lead.jobType}
               </span>
             )}
+            {/* Call timer badge — only for new leads */}
+            <CallTimerBadge createdAt={lead.createdAt} status={lead.status} />
           </div>
           <div className="flex items-center gap-2 mt-1 text-xs text-muted flex-wrap">
             {lead.city && <span>📍 {lead.city}{lead.state ? `, ${lead.state}` : ''}</span>}
@@ -113,12 +161,9 @@ export default function LeadCard({ lead, token, onStatusChange }) {
         <div className="text-right flex-shrink-0 flex flex-col items-end gap-1">
           {lead.phone && (
             <div className="flex items-center gap-2">
-              <a
-                href={`mailto:${lead.email}`}
-                className="text-sm font-medium text-accent hover:underline"
-              >
+              <span className="text-sm font-medium text-accent">
                 {lead.phone}
-              </a>
+              </span>
               <button
                 onClick={handleCallClick}
                 title={isMobile() ? `Call ${lead.phone}` : `Copy ${lead.phone}`}

@@ -92,6 +92,71 @@ router.post('/subscribers', (req, res) => {
   }
 });
 
+// PUT /api/admin/subscribers/:id — update subscriber name, email, market, optional password
+router.put('/subscribers/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const { name, email, market, password } = req.body || {};
+
+  const user = db.prepare("SELECT * FROM users WHERE id = ? AND role = 'subscriber'").get(id);
+  if (!user) return res.status(404).json({ error: 'Subscriber not found' });
+
+  const newEmail = email ? email.toLowerCase().trim() : user.email;
+  const newName = name !== undefined ? name : user.name;
+  const newMarket = market !== undefined ? market : user.market;
+  const newHash = password ? bcrypt.hashSync(password, 10) : user.password;
+
+  try {
+    db.prepare(
+      'UPDATE users SET email = ?, name = ?, market = ?, password = ? WHERE id = ?'
+    ).run(newEmail, newName, newMarket || null, newHash, id);
+
+    // If market changed, update market statuses
+    if (market !== undefined && market !== user.market) {
+      if (user.market) {
+        // Check if anyone else is still in the old market before freeing it
+        const oldCount = db.prepare(
+          "SELECT COUNT(*) as count FROM users WHERE market = ? AND role = 'subscriber' AND id != ?"
+        ).get(user.market, id);
+        if (oldCount.count === 0) {
+          db.prepare("UPDATE markets SET status = 'available' WHERE name = ?").run(user.market);
+        }
+      }
+      if (newMarket) {
+        db.prepare("UPDATE markets SET status = 'taken' WHERE name = ?").run(newMarket);
+      }
+    }
+
+    res.json({ id, email: newEmail, name: newName, market: newMarket, role: 'subscriber' });
+  } catch (err) {
+    if (err.message?.includes('UNIQUE')) {
+      return res.status(409).json({ error: 'An account with this email already exists' });
+    }
+    throw err;
+  }
+});
+
+// DELETE /api/admin/subscribers/:id — remove a subscriber account
+router.delete('/subscribers/:id', (req, res) => {
+  const id = Number(req.params.id);
+
+  const user = db.prepare("SELECT * FROM users WHERE id = ? AND role = 'subscriber'").get(id);
+  if (!user) return res.status(404).json({ error: 'Subscriber not found' });
+
+  db.prepare('DELETE FROM users WHERE id = ?').run(id);
+
+  // Free up the market if no other subscribers are in it
+  if (user.market) {
+    const remaining = db.prepare(
+      "SELECT COUNT(*) as count FROM users WHERE market = ? AND role = 'subscriber'"
+    ).get(user.market);
+    if (remaining.count === 0) {
+      db.prepare("UPDATE markets SET status = 'available' WHERE name = ?").run(user.market);
+    }
+  }
+
+  res.json({ success: true });
+});
+
 // GET /api/admin/markets — list all markets with subscriber counts
 router.get('/markets', (req, res) => {
   const markets = db.prepare('SELECT * FROM markets ORDER BY name').all();

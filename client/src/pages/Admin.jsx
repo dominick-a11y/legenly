@@ -235,6 +235,9 @@ export default function Admin() {
   const [marketForm, setMarketForm] = useState({ name: '', cities: '' });
 
   const [formMsg, setFormMsg] = useState({ type: '', text: '' });
+  const [editSub, setEditSub] = useState(null);
+  const [editSubForm, setEditSubForm] = useState({ name: '', email: '', market: '', password: '' });
+  const [confirmDeleteSub, setConfirmDeleteSub] = useState(null);
 
   const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
 
@@ -295,6 +298,32 @@ export default function Admin() {
       showMsg('success', `Market "${data.name}" created`);
     } catch (err) {
       showMsg('error', err.response?.data?.error || 'Failed to create market');
+    }
+  };
+
+  const handleEditSubSave = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = { name: editSubForm.name, email: editSubForm.email, market: editSubForm.market };
+      if (editSubForm.password) payload.password = editSubForm.password;
+      const { data } = await axios.put(`/api/admin/subscribers/${editSub.id}`, payload, authHeaders);
+      setSubscribers(prev => prev.map(s => s.id === data.id ? { ...s, ...data } : s));
+      setEditSub(null);
+      showMsg('success', `Updated ${data.email}`);
+    } catch (err) {
+      showMsg('error', err.response?.data?.error || 'Failed to update subscriber');
+    }
+  };
+
+  const handleDeleteSub = async () => {
+    try {
+      await axios.delete(`/api/admin/subscribers/${confirmDeleteSub.id}`, authHeaders);
+      setSubscribers(prev => prev.filter(s => s.id !== confirmDeleteSub.id));
+      setConfirmDeleteSub(null);
+      showMsg('success', 'Subscriber deleted');
+    } catch (err) {
+      showMsg('error', err.response?.data?.error || 'Failed to delete subscriber');
+      setConfirmDeleteSub(null);
     }
   };
 
@@ -486,13 +515,14 @@ export default function Admin() {
                     {subscribers.length === 0 ? (
                       <p className="text-muted text-center py-12">No subscribers yet.</p>
                     ) : (
-                      <table className="w-full text-sm min-w-[600px]">
+                      <table className="w-full text-sm min-w-[640px]">
                         <thead>
                           <tr className="border-b border-subtle text-muted">
                             <th className="text-left py-3 pr-4 font-medium">Name</th>
                             <th className="text-left py-3 pr-4 font-medium">Email</th>
                             <th className="text-left py-3 pr-4 font-medium">Market</th>
-                            <th className="text-left py-3 font-medium">Joined</th>
+                            <th className="text-left py-3 pr-4 font-medium">Joined</th>
+                            <th className="text-left py-3 font-medium">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -505,8 +535,24 @@ export default function Admin() {
                                   {sub.market || 'Unassigned'}
                                 </span>
                               </td>
-                              <td className="py-3 text-muted">
+                              <td className="py-3 pr-4 text-muted">
                                 {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString() : '—'}
+                              </td>
+                              <td className="py-3">
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    onClick={() => { setEditSub(sub); setEditSubForm({ name: sub.name || '', email: sub.email, market: sub.market || '', password: '' }); }}
+                                    className="text-xs text-muted hover:text-white transition-colors"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => setConfirmDeleteSub(sub)}
+                                    className="text-xs text-red-400/70 hover:text-red-400 transition-colors"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -579,6 +625,74 @@ export default function Admin() {
           </div>
         </div>
       </main>
+
+      {/* Edit Subscriber Modal */}
+      {editSub && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center px-4" onClick={() => setEditSub(null)}>
+          <div className="bg-surface border border-subtle rounded-2xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <h3 className="font-heading text-lg font-semibold mb-5 text-white">Edit Subscriber</h3>
+            <form onSubmit={handleEditSubSave} className="space-y-4">
+              <input
+                className={inputClass}
+                placeholder="Full Name"
+                value={editSubForm.name}
+                onChange={e => setEditSubForm(p => ({ ...p, name: e.target.value }))}
+              />
+              <input
+                className={inputClass}
+                placeholder="Email *"
+                type="email"
+                required
+                value={editSubForm.email}
+                onChange={e => setEditSubForm(p => ({ ...p, email: e.target.value }))}
+              />
+              <select
+                className={`${inputClass} appearance-none`}
+                value={editSubForm.market}
+                onChange={e => setEditSubForm(p => ({ ...p, market: e.target.value }))}
+              >
+                <option value="">No Market</option>
+                {markets.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+              </select>
+              <input
+                className={inputClass}
+                placeholder="New Password (leave blank to keep current)"
+                type="password"
+                value={editSubForm.password}
+                onChange={e => setEditSubForm(p => ({ ...p, password: e.target.value }))}
+              />
+              <div className="flex gap-3 pt-2">
+                <button type="submit" className="flex-1 bg-accent hover:bg-accent-dim text-bg font-heading font-bold py-3 rounded-xl transition-colors text-sm">
+                  Save Changes
+                </button>
+                <button type="button" onClick={() => setEditSub(null)} className="px-4 py-3 text-muted hover:text-white border border-subtle rounded-xl text-sm transition-colors">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Subscriber Confirmation */}
+      {confirmDeleteSub && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center px-4">
+          <div className="bg-surface border border-subtle rounded-2xl p-6 max-w-sm w-full">
+            <h3 className="font-heading text-lg font-semibold text-white mb-2">Delete Subscriber?</h3>
+            <p className="text-muted text-sm mb-6">
+              Remove <span className="text-white font-medium">{confirmDeleteSub.email}</span> and release their market? This cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={handleDeleteSub} className="flex-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 font-bold py-3 rounded-xl text-sm transition-colors">
+                Delete
+              </button>
+              <button onClick={() => setConfirmDeleteSub(null)} className="flex-1 bg-surface border border-subtle text-muted hover:text-white py-3 rounded-xl text-sm transition-colors">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -21,6 +21,16 @@ router.post('/lead', (req, res) => {
   const timestamp = new Date().toISOString();
   const body = req.body || {};
 
+  // Validate webhook secret if configured
+  const secret = process.env.WEBHOOK_SECRET;
+  if (secret) {
+    const provided = req.headers['x-webhook-secret'];
+    if (provided !== secret) {
+      console.warn(`[Webhook] ${timestamp} — Rejected: invalid or missing x-webhook-secret`);
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+  }
+
   console.log(`[Webhook] ${timestamp} — Incoming lead:`, JSON.stringify(body));
 
   try {

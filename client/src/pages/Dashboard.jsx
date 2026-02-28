@@ -22,6 +22,8 @@ export default function Dashboard() {
   const [notifications, setNotifications] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [pushDenied, setPushDenied] = useState(false);
   const socketRef = useRef(null);
 
   // ─── Fetch initial leads ─────────────────────────────────────────────────
@@ -33,6 +35,18 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, [token]);
 
+
+  // ─── Request browser push notification permission ─────────────────────────
+  useEffect(() => {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().then(perm => {
+        if (perm === 'denied') setPushDenied(true);
+      });
+    } else if (Notification.permission === 'denied') {
+      setPushDenied(true);
+    }
+  }, []);
 
   // ─── Onboarding status check ──────────────────────────────────────────────
   useEffect(() => {
@@ -76,6 +90,13 @@ export default function Dashboard() {
         ...prev,
         { id: `${lead.id}-${Date.now()}`, lead }
       ]);
+      // Browser push notification (works when tab is in background)
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(`New Lead — ${lead.market || 'Your Territory'}`, {
+          body: `${lead.name} · ${lead.city || ''} · ${lead.jobType || ''}`.replace(/ · $/, ''),
+          icon: '/favicon.ico'
+        });
+      }
     });
 
     socket.on('connect_error', (err) => {
@@ -100,9 +121,18 @@ export default function Dashboard() {
   }, []);
 
   // ─── Filter leads ─────────────────────────────────────────────────────────
-  const filteredLeads = filter === 'all'
-    ? leads
-    : leads.filter(l => l.status === filter);
+  const q = searchQuery.trim().toLowerCase();
+  const filteredLeads = leads
+    .filter(l => filter === 'all' || l.status === filter)
+    .filter(l => {
+      if (!q) return true;
+      return (
+        l.name?.toLowerCase().includes(q) ||
+        l.phone?.toLowerCase().includes(q) ||
+        l.email?.toLowerCase().includes(q) ||
+        l.city?.toLowerCase().includes(q)
+      );
+    });
 
   // Count per filter for badges
   const counts = {
@@ -170,6 +200,42 @@ export default function Dashboard() {
             {/* Stats */}
             {!loading && <StatsRow leads={leads} market={user?.market} />}
 
+            {/* Push notification denied banner */}
+            {pushDenied && (
+              <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-yellow-400/5 border border-yellow-400/20 rounded-xl text-sm text-yellow-300">
+                <span className="text-base">🔔</span>
+                <span>Enable browser notifications to get alerted about new leads even when this tab is in the background. Check your browser's site settings.</span>
+                <button onClick={() => setPushDenied(false)} className="ml-auto text-yellow-300/50 hover:text-yellow-300 flex-shrink-0 transition-colors">✕</button>
+              </div>
+            )}
+
+            {/* Search input */}
+            <div className="relative mb-4">
+              <svg
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
+                width="15" height="15" viewBox="0 0 20 20" fill="currentColor"
+              >
+                <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"/>
+              </svg>
+              <input
+                type="text"
+                placeholder="Search by name, phone, city, or email…"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full bg-surface border border-subtle rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder-muted focus:outline-none focus:border-accent transition-colors"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-white transition-colors"
+                >
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+
             {/* Filter tabs */}
             <div className="flex gap-2 mb-6 flex-wrap">
               {FILTER_OPTIONS.map(({ key, label }) => (
@@ -208,7 +274,9 @@ export default function Dashboard() {
                 <div className="text-4xl mb-4">📭</div>
                 <p className="text-white font-heading font-semibold text-lg">No leads yet</p>
                 <p className="text-muted text-sm mt-1">
-                  {filter === 'all'
+                  {q
+                    ? `No results for "${searchQuery}".`
+                    : filter === 'all'
                     ? 'New leads for your market will appear here in real time.'
                     : `No leads with status "${filter}".`}
                 </p>
