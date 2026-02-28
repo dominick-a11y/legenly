@@ -39,7 +39,7 @@ router.post('/leads', (req, res) => {
   const newLead = db.prepare('SELECT * FROM leads WHERE id = ?').get(result.lastInsertRowid);
 
   // Emit real-time event to subscribers in that market
-  req.app.locals.io?.to(market).emit('new-lead', newLead);
+  req.app.locals.io?.to(market).emit('newLead', newLead);
 
   res.status(201).json(newLead);
 });
@@ -47,7 +47,7 @@ router.post('/leads', (req, res) => {
 // GET /api/admin/subscribers — list all subscriber accounts
 router.get('/subscribers', (req, res) => {
   const subscribers = db.prepare(
-    "SELECT id, name, email, market, role, createdAt FROM users WHERE role = 'subscriber' ORDER BY createdAt DESC"
+    "SELECT id, name, email, market, role, createdAt, isFounder FROM users WHERE role = 'subscriber' ORDER BY createdAt DESC"
   ).all();
   res.json(subscribers);
 });
@@ -62,17 +62,27 @@ router.post('/subscribers', (req, res) => {
 
   const hash = bcrypt.hashSync(password, 10);
 
+  // Set isFounder = 1 for all accounts created before May 1, 2026
+  const founderCutoff = new Date('2026-05-01');
+  const isFounder = new Date() < founderCutoff ? 1 : 0;
+
   try {
     const result = db.prepare(
-      "INSERT INTO users (email, password, role, market, name) VALUES (?, ?, 'subscriber', ?, ?)"
-    ).run(email.toLowerCase().trim(), hash, market || null, name || null);
+      "INSERT INTO users (email, password, role, market, name, isFounder) VALUES (?, ?, 'subscriber', ?, ?, ?)"
+    ).run(email.toLowerCase().trim(), hash, market || null, name || null, isFounder);
+
+    // If a market was assigned, mark it as taken
+    if (market) {
+      db.prepare("UPDATE markets SET status = 'taken' WHERE name = ?").run(market);
+    }
 
     res.status(201).json({
       id: result.lastInsertRowid,
       email: email.toLowerCase().trim(),
       name: name || null,
       market: market || null,
-      role: 'subscriber'
+      role: 'subscriber',
+      isFounder
     });
   } catch (err) {
     if (err.message?.includes('UNIQUE')) {
@@ -105,14 +115,53 @@ router.post('/markets', (req, res) => {
   }
 
   try {
-    const result = db.prepare('INSERT INTO markets (name, cities) VALUES (?, ?)').run(name, cities);
-    res.status(201).json({ id: result.lastInsertRowid, name, cities, subscriberCount: 0 });
+    const result = db.prepare(
+      "INSERT INTO markets (name, cities, status) VALUES (?, ?, 'available')"
+    ).run(name, cities);
+    res.status(201).json({ id: result.lastInsertRowid, name, cities, status: 'available', subscriberCount: 0 });
   } catch (err) {
     if (err.message?.includes('UNIQUE')) {
       return res.status(409).json({ error: 'A market with this name already exists' });
     }
     throw err;
   }
+});
+
+// PUT /api/admin/markets/:id — update market cities or status
+router.put('/markets/:id', (req, res) => {
+  const { name, cities, status } = req.body || {};
+  const id = Number(req.params.id);
+
+  const market = db.prepare('SELECT * FROM markets WHERE id = ?').get(id);
+  if (!market) return res.status(404).json({ error: 'Market not found' });
+
+  db.prepare(
+    'UPDATE markets SET name = ?, cities = ?, status = ? WHERE id = ?'
+  ).run(name || market.name, cities || market.cities, status || market.status, id);
+
+  const updated = db.prepare('SELECT * FROM markets WHERE id = ?').get(id);
+  res.json(updated);
+});
+
+// DELETE /api/admin/markets/:id — delete market (fails if active subscribers exist)
+router.delete('/markets/:id', (req, res) => {
+  const id = Number(req.params.id);
+
+  const market = db.prepare('SELECT * FROM markets WHERE id = ?').get(id);
+  if (!market) return res.status(404).json({ error: 'Market not found' });
+
+  const countRow = db.prepare(
+    "SELECT COUNT(*) as count FROM users WHERE market = ? AND role = 'subscriber'"
+  ).get(market.name);
+
+  if (countRow.count > 0) {
+    return res.status(400).json({
+      error: `Cannot delete — ${countRow.count} active subscriber(s) assigned to this market`
+    });
+  }
+
+  db.prepare('DELETE FROM markets WHERE id = ?').run(id);
+  res.json({ success: true });
 });
 
 module.exports = router;

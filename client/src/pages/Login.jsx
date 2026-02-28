@@ -96,10 +96,6 @@ export default function Login() {
           </form>
         </div>
 
-        {/* Demo hint */}
-        <p className="text-center text-xs text-muted/60 mt-6">
-          Demo: hunter@legenly.io / hunter123
-        </p>
       </div>
     </div>
   );

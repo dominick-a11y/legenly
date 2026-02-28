@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { timeAgo } from './StatsRow.jsx';
 
@@ -10,17 +10,36 @@ const JOB_TYPE_COLORS = {
 };
 
 const STATUS_CONFIG = {
-  new:    { label: 'New',    bg: 'bg-accent/10',         border: 'border-accent/30',         text: 'text-accent' },
-  called: { label: 'Called', bg: 'bg-yellow-400/10',     border: 'border-yellow-400/30',     text: 'text-yellow-400' },
-  closed: { label: 'Closed', bg: 'bg-white/5',           border: 'border-white/10',           text: 'text-muted' }
+  new:    { label: 'New',    borderClass: 'border-l-accent',       bg: 'bg-accent/10',     border: 'border-accent/30',     text: 'text-accent' },
+  called: { label: 'Called', borderClass: 'border-l-yellow-400',   bg: 'bg-yellow-400/10', border: 'border-yellow-400/30', text: 'text-yellow-400' },
+  closed: { label: 'Closed', borderClass: 'border-l-blue-400',     bg: 'bg-white/5',       border: 'border-white/10',      text: 'text-muted' }
 };
 
+function isMobile() {
+  return /Mobi|Android/i.test(navigator.userAgent);
+}
+
 export default function LeadCard({ lead, token, onStatusChange }) {
-  const isNew = lead.status === 'new';
   const statusCfg = STATUS_CONFIG[lead.status] || STATUS_CONFIG.new;
   const jobTypeCfg = JOB_TYPE_COLORS[lead.jobType] || {
     bg: 'bg-white/5', border: 'border-white/10', text: 'text-muted'
   };
+
+  const [copyMsg, setCopyMsg] = useState('');
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [noteText, setNoteText] = useState('');
+  const [noteSaved, setNoteSaved] = useState(false);
+  const noteLoaded = useRef(false);
+
+  // Load existing note on first expand
+  useEffect(() => {
+    if (noteOpen && !noteLoaded.current) {
+      noteLoaded.current = true;
+      axios.get(`/api/leads/${lead.id}/note`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(({ data }) => setNoteText(data.note || ''))
+        .catch(() => {});
+    }
+  }, [noteOpen, lead.id, token]);
 
   const updateStatus = async (newStatus) => {
     try {
@@ -35,15 +54,38 @@ export default function LeadCard({ lead, token, onStatusChange }) {
     }
   };
 
+  const handleCallClick = () => {
+    if (isMobile()) {
+      window.location.href = `tel:${lead.phone}`;
+    } else {
+      navigator.clipboard.writeText(lead.phone).then(() => {
+        setCopyMsg('Copied!');
+        setTimeout(() => setCopyMsg(''), 2000);
+      });
+    }
+  };
+
+  const saveNote = async () => {
+    try {
+      await axios.put(
+        `/api/leads/${lead.id}/note`,
+        { note: noteText },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setNoteSaved(true);
+      setTimeout(() => setNoteSaved(false), 1500);
+    } catch (err) {
+      console.error('[LeadCard] Failed to save note:', err.message);
+    }
+  };
+
   return (
     <div
       className={[
-        'bg-surface rounded-xl p-5 border transition-all',
-        isNew
-          ? 'border-l-4 border-l-accent border-subtle'
-          : 'border-subtle'
+        'bg-surface rounded-xl p-5 border-l-4 border border-subtle transition-all',
+        statusCfg.borderClass
       ].join(' ')}
-      style={{ boxShadow: isNew ? '0 4px 20px rgba(0,0,0,0.35), -2px 0 0 rgba(0,229,160,0.15)' : '0 2px 12px rgba(0,0,0,0.25)' }}
+      style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
     >
       {/* Header row */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -67,20 +109,36 @@ export default function LeadCard({ lead, token, onStatusChange }) {
           </div>
         </div>
 
-        {/* Contact info */}
-        <div className="text-right flex-shrink-0">
+        {/* Contact info + Click to Call */}
+        <div className="text-right flex-shrink-0 flex flex-col items-end gap-1">
           {lead.phone && (
-            <a
-              href={`tel:${lead.phone}`}
-              className="text-sm font-medium text-accent hover:underline block"
-            >
-              📞 {lead.phone}
-            </a>
+            <div className="flex items-center gap-2">
+              <a
+                href={`mailto:${lead.email}`}
+                className="text-sm font-medium text-accent hover:underline"
+              >
+                {lead.phone}
+              </a>
+              <button
+                onClick={handleCallClick}
+                title={isMobile() ? `Call ${lead.phone}` : `Copy ${lead.phone}`}
+                className="flex items-center justify-center w-7 h-7 rounded-lg bg-accent/10 border border-accent/20 text-accent hover:bg-accent/20 transition-colors relative"
+              >
+                {copyMsg ? (
+                  <span className="text-[9px] font-bold absolute -top-6 left-1/2 -translate-x-1/2 bg-surface border border-subtle text-accent px-1.5 py-0.5 rounded whitespace-nowrap">
+                    {copyMsg}
+                  </span>
+                ) : null}
+                <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/>
+                </svg>
+              </button>
+            </div>
           )}
           {lead.email && (
             <a
               href={`mailto:${lead.email}`}
-              className="text-xs text-muted hover:text-white block mt-0.5 truncate max-w-[180px]"
+              className="text-xs text-muted hover:text-white truncate max-w-[180px] block"
             >
               {lead.email}
             </a>
@@ -96,22 +154,54 @@ export default function LeadCard({ lead, token, onStatusChange }) {
       )}
 
       {/* Action buttons */}
-      {lead.status !== 'closed' && (
-        <div className="flex gap-2 mt-4">
-          {lead.status === 'new' && (
-            <button
-              onClick={() => updateStatus('called')}
-              className="text-xs px-3.5 py-1.5 rounded-lg bg-yellow-400/10 border border-yellow-400/30 text-yellow-400 hover:bg-yellow-400/20 transition-colors font-medium"
-            >
-              Mark as Called
-            </button>
-          )}
+      <div className="flex gap-2 mt-4 flex-wrap">
+        {lead.status === 'new' && (
+          <button
+            onClick={() => updateStatus('called')}
+            className="text-xs px-3.5 py-1.5 rounded-lg bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 transition-colors font-medium"
+          >
+            Call Now
+          </button>
+        )}
+        {lead.status === 'called' && (
           <button
             onClick={() => updateStatus('closed')}
-            className="text-xs px-3.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-muted hover:bg-white/10 hover:text-white transition-colors"
+            className="text-xs px-3.5 py-1.5 rounded-lg bg-yellow-400/10 border border-yellow-400/30 text-yellow-400 hover:bg-yellow-400/20 transition-colors font-medium"
           >
             Mark as Closed
           </button>
+        )}
+        {lead.status === 'closed' && (
+          <span className="text-xs px-3.5 py-1.5 rounded-lg bg-blue-400/10 border border-blue-400/20 text-blue-400 font-medium flex items-center gap-1">
+            <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+            </svg>
+            Closed
+          </span>
+        )}
+
+        {/* Notes toggle */}
+        <button
+          onClick={() => setNoteOpen(o => !o)}
+          className="text-xs px-3.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-muted hover:text-white hover:bg-white/10 transition-colors"
+        >
+          {noteOpen ? 'Hide Note' : (noteText ? `Note: ${noteText.slice(0, 30)}${noteText.length > 30 ? '…' : ''}` : 'Add Note')}
+        </button>
+      </div>
+
+      {/* Notes section (collapsible) */}
+      {noteOpen && (
+        <div className="mt-3 border-t border-subtle pt-3">
+          <textarea
+            value={noteText}
+            onChange={e => setNoteText(e.target.value)}
+            onBlur={saveNote}
+            placeholder="Type a note about this lead..."
+            className="w-full bg-bg border border-subtle rounded-xl px-3 py-2.5 text-white text-sm placeholder-muted focus:outline-none focus:border-accent transition-colors resize-none h-20"
+          />
+          <p className={`text-xs mt-1 transition-opacity ${noteSaved ? 'text-accent opacity-100' : 'opacity-0'}`}>
+            Saved ✓
+          </p>
         </div>
       )}
     </div>

@@ -6,6 +6,7 @@ const NAV_ITEMS = {
   subscriber: [
     { label: 'Dashboard', path: '/dashboard', icon: '⚡' },
     { label: 'My Leads', path: '/dashboard', icon: '📋' },
+    { label: 'Community', path: '/community', icon: 'community' },
     { label: 'Analytics', path: null, icon: '📊', disabled: true },
     { label: 'Settings', path: null, icon: '⚙️', disabled: true }
   ],
@@ -87,6 +88,14 @@ export default function Sidebar({ isOpen, onClose }) {
               📍 {user.market}
             </p>
           )}
+          {user?.isFounder === 1 && (
+            <div className="mt-2 px-1">
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-accent/10 border border-accent/30 text-accent"
+                style={{ boxShadow: '0 0 8px rgba(0,229,160,0.15)' }}>
+                ⚡ Founding Member
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Navigation */}
@@ -112,7 +121,13 @@ export default function Sidebar({ isOpen, onClose }) {
                     : 'text-muted hover:text-white hover:bg-white/5'
                 ].join(' ')}
               >
-                <span className="text-base leading-none">{item.icon}</span>
+                {item.icon === 'community' ? (
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" className="flex-shrink-0">
+                    <path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v7a2 2 0 01-2 2H6l-4 4V5z"/>
+                  </svg>
+                ) : (
+                  <span className="text-base leading-none">{item.icon}</span>
+                )}
                 <span>{item.label}</span>
                 {item.disabled && (
                   <span className="ml-auto text-xs bg-subtle px-1.5 py-0.5 rounded text-muted/60">

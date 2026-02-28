@@ -31,53 +31,29 @@ function isThisMonth(dateString) {
   return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
 }
 
-export default function StatsRow({ leads }) {
-  const total = leads.length;
+export default function StatsRow({ leads, market }) {
   const leadsToday = leads.filter(l => isToday(l.createdAt)).length;
   const leadsThisMonth = leads.filter(l => isThisMonth(l.createdAt)).length;
-
-  // Estimated revenue: leads × $200 avg job × 40% close rate
-  const AVG_JOB = 200;
-  const CLOSE_RATE = 0.4;
-  const estRevenue = Math.round(total * AVG_JOB * CLOSE_RATE);
-
-  // ROI vs $500/mo subscription
-  const SUB_COST = 500;
-  const roi = SUB_COST > 0 ? Math.round((estRevenue / SUB_COST) * 100) : 0;
 
   const stats = [
     {
       label: 'Leads Today',
       value: leadsToday,
-      sub: `${leadsThisMonth} this month`,
+      sub: 'new inquiries today',
       color: 'text-accent',
       icon: '⚡'
     },
     {
-      label: 'This Month',
+      label: 'Leads This Month',
       value: leadsThisMonth,
-      sub: `${total} total`,
+      sub: 'this calendar month',
       color: 'text-white',
       icon: '📅'
-    },
-    {
-      label: 'Est. Revenue',
-      value: `$${estRevenue.toLocaleString()}`,
-      sub: `@ $${AVG_JOB}/job × ${CLOSE_RATE * 100}% close`,
-      color: 'text-accent',
-      icon: '💰'
-    },
-    {
-      label: 'ROI vs $500/mo',
-      value: `${roi}%`,
-      sub: roi >= 100 ? '✓ Profitable' : 'Building up...',
-      color: roi >= 100 ? 'text-accent' : 'text-yellow-400',
-      icon: '📈'
     }
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+    <div className={`grid gap-3 mb-8 ${market ? 'grid-cols-2 lg:grid-cols-3' : 'grid-cols-2'}`}>
       {stats.map(({ label, value, sub, color, icon }) => (
         <div
           key={label}
@@ -92,6 +68,22 @@ export default function StatsRow({ leads }) {
           <p className="text-xs text-muted mt-1">{sub}</p>
         </div>
       ))}
+
+      {market && (
+        <div
+          className="bg-surface border border-subtle rounded-xl p-4"
+          style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm">📍</span>
+            <p className="text-xs text-muted uppercase tracking-wider font-medium">Your Territory</p>
+          </div>
+          <p className="text-lg font-heading font-bold text-white leading-tight">{market}</p>
+          <span className="inline-block mt-1.5 text-xs px-2 py-0.5 rounded-full bg-accent/10 border border-accent/20 text-accent font-medium">
+            Exclusive
+          </span>
+        </div>
+      )}
     </div>
   );
 }

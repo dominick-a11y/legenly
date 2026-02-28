@@ -7,6 +7,14 @@ const db = new Database(path.join(__dirname, 'legenly.db'));
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
+function addColumnIfNotExists(table, column, definition) {
+  try {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  } catch {
+    // Column already exists — ignore
+  }
+}
+
 function setup() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS markets (
@@ -39,7 +47,40 @@ function setup() {
       assignedTo INTEGER,
       createdAt TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS posts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId INTEGER NOT NULL,
+      userName TEXT NOT NULL,
+      market TEXT NOT NULL,
+      message TEXT NOT NULL,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (userId) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS lead_notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      leadId INTEGER NOT NULL,
+      userId INTEGER NOT NULL,
+      note TEXT,
+      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(leadId, userId),
+      FOREIGN KEY (leadId) REFERENCES leads(id),
+      FOREIGN KEY (userId) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS onboarding (
+      userId INTEGER PRIMARY KEY,
+      dismissed INTEGER DEFAULT 0,
+      dismissedAt DATETIME,
+      FOREIGN KEY (userId) REFERENCES users(id)
+    );
   `);
+
+  // Add new columns to existing tables if they don't exist
+  addColumnIfNotExists('leads', 'assignedMarket', 'TEXT');
+  addColumnIfNotExists('users', 'isFounder', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('markets', 'status', "TEXT DEFAULT 'available'");
 
   const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
   if (userCount.count === 0) {
@@ -48,17 +89,17 @@ function setup() {
     const adminHash = bcrypt.hashSync('admin123', 10);
     const hunterHash = bcrypt.hashSync('hunter123', 10);
 
-    db.prepare("INSERT INTO markets (name, cities) VALUES (?, ?)").run(
+    db.prepare("INSERT INTO markets (name, cities, status) VALUES (?, ?, 'available')").run(
       'Forsyth County GA',
       'Cumming,Alpharetta,Johns Creek,Suwanee'
     );
 
     db.prepare(
-      "INSERT INTO users (email, password, role, name) VALUES (?, ?, 'admin', ?)"
+      "INSERT INTO users (email, password, role, name, isFounder) VALUES (?, ?, 'admin', ?, 1)"
     ).run('admin@legenly.io', adminHash, 'Admin');
 
     const hunterRow = db.prepare(
-      "INSERT INTO users (email, password, role, market, name) VALUES (?, ?, 'subscriber', ?, ?)"
+      "INSERT INTO users (email, password, role, market, name, isFounder) VALUES (?, ?, 'subscriber', ?, ?, 1)"
     ).run('hunter@legenly.io', hunterHash, 'Forsyth County GA', 'Hunter');
 
     const hunterId = hunterRow.lastInsertRowid;

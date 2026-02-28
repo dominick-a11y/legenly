@@ -20,10 +20,30 @@ export default function Notification({ notifications, onDismiss }) {
   );
 }
 
+const playChime = () => {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [523.25, 659.25].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.5);
+      osc.start(ctx.currentTime + i * 0.15);
+      osc.stop(ctx.currentTime + i * 0.15 + 0.5);
+    });
+  } catch {}
+};
+
 function ToastItem({ notif, onDismiss }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    // Play chime when notification appears
+    playChime();
     // Tiny delay to trigger the CSS transition
     const showTimer = setTimeout(() => setVisible(true), 15);
     // Auto-dismiss after 5 seconds

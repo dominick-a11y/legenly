@@ -15,6 +15,207 @@ const TABS = [
 
 const JOB_TYPES = ['Garage', 'Estate', 'Appliance', 'Commercial'];
 
+
+function MarketsTab({ markets, setMarkets, token, authHeaders, showMsg, inputClass }) {
+  const [editingId, setEditingId] = useState(null);
+  const [editCities, setEditCities] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState({ name: '', cities: '' });
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    try {
+      const { data } = await axios.post('/api/admin/markets', addForm, authHeaders);
+      setMarkets(prev => [...prev, data]);
+      setAddForm({ name: '', cities: '' });
+      setShowAddModal(false);
+      showMsg('success', `Market "${data.name}" created`);
+    } catch (err) {
+      showMsg('error', err.response?.data?.error || 'Failed to create market');
+    }
+  };
+
+  const handleEditSave = async (market) => {
+    try {
+      const { data } = await axios.put(`/api/admin/markets/${market.id}`, { cities: editCities }, authHeaders);
+      setMarkets(prev => prev.map(m => m.id === data.id ? { ...data, subscriberCount: m.subscriberCount } : m));
+      setEditingId(null);
+      showMsg('success', 'Market updated');
+    } catch (err) {
+      showMsg('error', err.response?.data?.error || 'Failed to update market');
+    }
+  };
+
+  const handleDelete = async (market) => {
+    try {
+      await axios.delete(`/api/admin/markets/${market.id}`, authHeaders);
+      setMarkets(prev => prev.filter(m => m.id !== market.id));
+      setConfirmDelete(null);
+      showMsg('success', `Market "${market.name}" deleted`);
+    } catch (err) {
+      showMsg('error', err.response?.data?.error || 'Failed to delete market');
+      setConfirmDelete(null);
+    }
+  };
+
+  const totalSubs = markets.reduce((sum, m) => sum + (m.subscriberCount || 0), 0);
+  const available = markets.filter(m => !m.status || m.status === 'available').length;
+
+  return (
+    <div>
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        {[
+          { label: 'Total Markets', value: markets.length },
+          { label: 'Active Subscribers', value: totalSubs },
+          { label: 'Available Markets', value: available }
+        ].map(s => (
+          <div key={s.label} className="bg-surface border border-subtle rounded-xl p-4">
+            <p className="text-xs text-muted uppercase tracking-wide">{s.label}</p>
+            <p className="text-2xl font-heading font-bold text-accent mt-1">{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-heading text-lg font-semibold text-white">Markets</h3>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="px-4 py-2 bg-accent hover:bg-accent-dim text-bg font-heading font-bold rounded-xl text-sm transition-colors"
+        >
+          + Add Market
+        </button>
+      </div>
+
+      {/* Table */}
+      {markets.length === 0 ? (
+        <p className="text-muted text-center py-12">No markets yet.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[600px]">
+            <thead>
+              <tr className="border-b border-subtle text-muted">
+                <th className="text-left py-3 pr-4 font-medium">Market Name</th>
+                <th className="text-left py-3 pr-4 font-medium">Cities</th>
+                <th className="text-left py-3 pr-4 font-medium">Subscribers</th>
+                <th className="text-left py-3 pr-4 font-medium">Status</th>
+                <th className="text-left py-3 font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {markets.map(market => (
+                <tr key={market.id} className="border-b border-subtle/50">
+                  <td className="py-3 pr-4 text-white font-medium">{market.name}</td>
+                  <td className="py-3 pr-4">
+                    {editingId === market.id ? (
+                      <input
+                        className="bg-bg border border-accent/40 rounded-lg px-2 py-1 text-white text-xs w-48 focus:outline-none"
+                        value={editCities}
+                        onChange={e => setEditCities(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleEditSave(market); if (e.key === 'Escape') setEditingId(null); }}
+                        autoFocus
+                      />
+                    ) : (
+                      <span className="text-muted text-xs">{market.cities}</span>
+                    )}
+                  </td>
+                  <td className="py-3 pr-4 text-muted">{market.subscriberCount || 0}</td>
+                  <td className="py-3 pr-4">
+                    {market.status === 'taken' ? (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 font-medium">Taken</span>
+                    ) : (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 border border-accent/20 text-accent font-medium">Available</span>
+                    )}
+                  </td>
+                  <td className="py-3">
+                    <div className="flex items-center gap-2">
+                      {editingId === market.id ? (
+                        <>
+                          <button onClick={() => handleEditSave(market)} className="text-xs text-accent hover:underline">Save</button>
+                          <button onClick={() => setEditingId(null)} className="text-xs text-muted hover:text-white">Cancel</button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => { setEditingId(market.id); setEditCities(market.cities); }}
+                          className="text-xs text-muted hover:text-white transition-colors"
+                        >
+                          Edit
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setConfirmDelete(market)}
+                        className="text-xs text-red-400/70 hover:text-red-400 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Add Market Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center px-4" onClick={() => setShowAddModal(false)}>
+          <div className="bg-surface border border-subtle rounded-2xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <h3 className="font-heading text-lg font-semibold mb-5 text-white">Add New Market</h3>
+            <form onSubmit={handleAdd} className="space-y-4">
+              <input
+                className={inputClass}
+                placeholder="Market Name (e.g. Forsyth County GA) *"
+                required
+                value={addForm.name}
+                onChange={e => setAddForm(p => ({ ...p, name: e.target.value }))}
+              />
+              <div>
+                <input
+                  className={inputClass}
+                  placeholder="Cities (comma separated) *"
+                  required
+                  value={addForm.cities}
+                  onChange={e => setAddForm(p => ({ ...p, cities: e.target.value }))}
+                />
+                <p className="text-xs text-muted mt-1 px-1">e.g. Cumming, Alpharetta, Johns Creek</p>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="submit" className="flex-1 bg-accent hover:bg-accent-dim text-bg font-heading font-bold py-3 rounded-xl transition-colors text-sm">
+                  Create Market
+                </button>
+                <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-3 text-muted hover:text-white border border-subtle rounded-xl text-sm transition-colors">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center px-4">
+          <div className="bg-surface border border-subtle rounded-2xl p-6 max-w-sm w-full">
+            <h3 className="font-heading text-lg font-semibold text-white mb-2">Delete Market?</h3>
+            <p className="text-muted text-sm mb-6">Are you sure you want to delete <span className="text-white font-medium">"{confirmDelete.name}"</span>? This cannot be undone.</p>
+            <div className="flex gap-3">
+              <button onClick={() => handleDelete(confirmDelete)} className="flex-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 font-bold py-3 rounded-xl text-sm transition-colors">
+                Delete
+              </button>
+              <button onClick={() => setConfirmDelete(null)} className="flex-1 bg-surface border border-subtle text-muted hover:text-white py-3 rounded-xl text-sm transition-colors">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Admin() {
   const { token } = useAuth();
   const [activeTab, setActiveTab] = useState('leads');
@@ -349,7 +550,7 @@ export default function Admin() {
                           onChange={e => setSubForm(p => ({ ...p, market: e.target.value }))}
                         >
                           <option value="">Assign to Market (optional)</option>
-                          {markets.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                          {markets.filter(m => !m.status || m.status === 'available').map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                         </select>
                         <button
                           type="submit"
@@ -364,65 +565,14 @@ export default function Admin() {
 
                 {/* ── MARKETS ── */}
                 {activeTab === 'markets' && (
-                  <div className="space-y-6">
-                    {/* Existing markets */}
-                    <div className="grid gap-4">
-                      {markets.length === 0 ? (
-                        <p className="text-muted">No markets yet.</p>
-                      ) : (
-                        markets.map(market => (
-                          <div
-                            key={market.id}
-                            className="bg-surface border border-subtle rounded-xl p-5"
-                          >
-                            <div className="flex items-center justify-between gap-4 flex-wrap">
-                              <h4 className="font-heading font-semibold text-white">{market.name}</h4>
-                              <span className="text-xs text-muted">
-                                {market.subscriberCount || 0} subscriber{market.subscriberCount !== 1 ? 's' : ''}
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap gap-2 mt-3">
-                              {market.cities.split(',').map(city => (
-                                <span
-                                  key={city}
-                                  className="text-xs px-2.5 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent"
-                                >
-                                  {city.trim()}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-
-                    {/* Add market form */}
-                    <div className="bg-surface border border-subtle rounded-2xl p-6 max-w-xl">
-                      <h3 className="font-heading text-lg font-semibold mb-5 text-white">Add New Market</h3>
-                      <form onSubmit={handleCreateMarket} className="space-y-4">
-                        <input
-                          className={inputClass}
-                          placeholder="Market Name (e.g. Forsyth County GA) *"
-                          required
-                          value={marketForm.name}
-                          onChange={e => setMarketForm(p => ({ ...p, name: e.target.value }))}
-                        />
-                        <input
-                          className={inputClass}
-                          placeholder="Cities — comma separated (e.g. Cumming,Alpharetta)"
-                          required
-                          value={marketForm.cities}
-                          onChange={e => setMarketForm(p => ({ ...p, cities: e.target.value }))}
-                        />
-                        <button
-                          type="submit"
-                          className="w-full bg-accent hover:bg-accent-dim text-bg font-heading font-bold py-3 rounded-xl transition-colors text-sm"
-                        >
-                          Create Market
-                        </button>
-                      </form>
-                    </div>
-                  </div>
+                  <MarketsTab
+                    markets={markets}
+                    setMarkets={setMarkets}
+                    token={token}
+                    authHeaders={authHeaders}
+                    showMsg={showMsg}
+                    inputClass={inputClass}
+                  />
                 )}
               </>
             )}

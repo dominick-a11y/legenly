@@ -21,6 +21,7 @@ export default function Dashboard() {
   const [filter, setFilter] = useState('all');
   const [notifications, setNotifications] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const socketRef = useRef(null);
 
   // ─── Fetch initial leads ─────────────────────────────────────────────────
@@ -31,6 +32,25 @@ export default function Dashboard() {
       .catch(err => console.error('[Dashboard] Failed to load leads:', err.message))
       .finally(() => setLoading(false));
   }, [token]);
+
+
+  // ─── Onboarding status check ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!token) return;
+    axios
+      .get('/api/auth/onboarding-status', { headers: { Authorization: `Bearer ${token}` } })
+      .then(({ data }) => {
+        if (!data.dismissed) setShowOnboarding(true);
+      })
+      .catch(() => {});
+  }, [token]);
+
+  const dismissOnboarding = async () => {
+    try {
+      await axios.post('/api/auth/dismiss-onboarding', {}, { headers: { Authorization: `Bearer ${token}` } });
+    } catch {}
+    setShowOnboarding(false);
+  };
 
   // ─── Socket.io real-time connection ──────────────────────────────────────
   useEffect(() => {
@@ -47,7 +67,7 @@ export default function Dashboard() {
       console.log('[Socket] Connected:', socket.id);
     });
 
-    socket.on('new-lead', (lead) => {
+    socket.on('newLead', (lead) => {
       console.log('[Socket] New lead received:', lead.name);
       // Prepend new lead to the feed
       setLeads(prev => [lead, ...prev]);
@@ -148,7 +168,7 @@ export default function Dashboard() {
             </div>
 
             {/* Stats */}
-            {!loading && <StatsRow leads={leads} />}
+            {!loading {!loading && <StatsRow leads={leads} />}{!loading && <StatsRow leads={leads} />} <StatsRow leads={leads} market={user?.market} />}
 
             {/* Filter tabs */}
             <div className="flex gap-2 mb-6 flex-wrap">
@@ -208,6 +228,46 @@ export default function Dashboard() {
           </div>
         </div>
       </main>
+
+
+      {/* Onboarding Modal */}
+      {showOnboarding && (
+        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center px-4">
+          <div
+            className="bg-surface border border-subtle rounded-2xl p-8 max-w-md w-full text-center"
+            style={{ boxShadow: '0 25px 60px rgba(0,0,0,0.7), 0 0 40px rgba(0,229,160,0.08)' }}
+          >
+            <h1 className="font-heading text-3xl font-extrabold tracking-tight mb-2">
+              <span className="text-white">Legen</span><span className="text-accent">ly</span>
+            </h1>
+            <h2 className="font-heading text-xl font-bold text-white mt-4">
+              Welcome to Legenly, {user?.name?.split(' ')[0] || 'there'}
+            </h2>
+            <p className="text-muted text-sm mt-2">You now own exclusive lead rights to</p>
+            <p className="text-accent font-heading text-2xl font-bold mt-2">{user?.market}</p>
+
+            <ul className="mt-6 space-y-3 text-left">
+              {[
+                'Leads flow in automatically from our ad campaigns',
+                "You're the only operator in your territory",
+                'Call leads within 5 minutes for best results'
+              ].map(item => (
+                <li key={item} className="flex items-start gap-3 text-sm text-white">
+                  <span className="text-accent mt-0.5 flex-shrink-0">✓</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+
+            <button
+              onClick={dismissOnboarding}
+              className="mt-8 w-full bg-accent hover:bg-accent-dim text-bg font-heading font-bold py-4 rounded-xl transition-colors text-base tracking-wide"
+            >
+              Let's Go →
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Toast notification stack */}
       <Notification

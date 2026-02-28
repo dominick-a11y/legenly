@@ -49,6 +49,8 @@ io.on('connection', (socket) => {
   const { market, role, name } = socket.user;
   console.log(`[Socket] Connected: ${name} (${role})`);
 
+  // Auto-join the community room and the market room
+  socket.join('community');
   // Auto-join the market room so they receive real-time lead events
   if (market) {
     socket.join(market);
@@ -70,6 +72,7 @@ app.use(express.json());
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/leads', require('./routes/leads'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/community', require('./routes/community'));
 app.use('/api/webhook', require('./routes/webhook'));
 
 app.get('/api/health', (req, res) => {

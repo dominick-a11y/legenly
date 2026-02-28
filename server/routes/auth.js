@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { db } = require('../db/setup');
-const { JWT_SECRET } = require('../middleware/auth');
+const { JWT_SECRET, requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -25,12 +25,29 @@ router.post('/login', (req, res) => {
     email: user.email,
     role: user.role,
     market: user.market,
-    name: user.name
+    name: user.name,
+    isFounder: user.isFounder || 0
   };
 
   const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 
   res.json({ token, user: payload });
+});
+
+// GET /api/auth/onboarding-status
+router.get('/onboarding-status', requireAuth, (req, res) => {
+  const row = db.prepare('SELECT dismissed FROM onboarding WHERE userId = ?').get(req.user.id);
+  res.json({ dismissed: row ? row.dismissed === 1 : false });
+});
+
+// POST /api/auth/dismiss-onboarding
+router.post('/dismiss-onboarding', requireAuth, (req, res) => {
+  db.prepare(`
+    INSERT INTO onboarding (userId, dismissed, dismissedAt)
+    VALUES (?, 1, datetime('now'))
+    ON CONFLICT(userId) DO UPDATE SET dismissed = 1, dismissedAt = datetime('now')
+  `).run(req.user.id);
+  res.json({ success: true });
 });
 
 module.exports = router;
