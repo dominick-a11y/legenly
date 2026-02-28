@@ -421,13 +421,20 @@ export default function Waitlist() {
         )}
 
         <h1
-          className="font-heading font-black text-5xl md:text-6xl lg:text-7xl mb-6"
-          style={{ letterSpacing: '-0.03em', lineHeight: '1.0' }}
+          className="font-heading font-black text-5xl md:text-6xl lg:text-[5rem] mb-8"
+          style={{ letterSpacing: '-0.015em', lineHeight: '1.12' }}
         >
           <span className="block text-white">Stop Splitting</span>
-          <span className="block text-white">Your Leads</span>
+          <span className="block relative inline-block">
+            <span className="text-white">Your Leads</span>
+            <span
+              aria-hidden
+              className="absolute left-0 -bottom-1 w-full h-[3px] rounded-full"
+              style={{ background: 'linear-gradient(90deg, #00e5a0, #00c487)' }}
+            />
+          </span>
           <span
-            className="block"
+            className="block mt-1"
             style={{
               background: 'linear-gradient(120deg, #00e5a0 0%, #00c487 40%, #00e5a0 80%)',
               backgroundSize: '200% 200%',
@@ -441,10 +448,12 @@ export default function Waitlist() {
           </span>
         </h1>
 
-        <p className="text-muted text-base md:text-lg max-w-lg mx-auto mb-10 leading-relaxed">
-          One junk removal operator per city.{' '}
-          <strong className="text-white">Every lead is yours.</strong>{' '}
-          No competing with 4 other guys on the same customer — ever.
+        <p className="text-white/60 text-lg max-w-xl mx-auto mb-10 leading-relaxed">
+          We lock down{' '}
+          <span className="text-white font-semibold">one operator per city</span>{' '}
+          and route every single lead directly to their phone.{' '}
+          While competitors fight over the same customers,{' '}
+          <span className="text-white font-semibold">you're closing jobs they never see.</span>
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-4 mb-10">
