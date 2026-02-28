@@ -5,6 +5,7 @@ import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Admin from './pages/Admin.jsx';
 import Community from './pages/Community.jsx';
+import Waitlist from './pages/Waitlist.jsx';
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { isAuthenticated, user } = useAuth();
@@ -52,6 +53,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route path="/waitlist" element={<Waitlist />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

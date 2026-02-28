@@ -10,7 +10,8 @@ const TABS = [
   { key: 'add-lead',       label: 'Add Lead',        icon: '➕' },
   { key: 'subscribers',    label: 'Subscribers',     icon: '👥' },
   { key: 'add-subscriber', label: 'Add Subscriber',  icon: '👤' },
-  { key: 'markets',        label: 'Markets',         icon: '🗺️' }
+  { key: 'markets',        label: 'Markets',         icon: '🗺️' },
+  { key: 'waitlist',       label: 'Waitlist',        icon: '📬' }
 ];
 
 const JOB_TYPES = ['Garage', 'Estate', 'Appliance', 'Commercial'];
@@ -239,6 +240,8 @@ export default function Admin() {
   const [editSub, setEditSub] = useState(null);
   const [editSubForm, setEditSubForm] = useState({ name: '', email: '', market: '', password: '' });
   const [confirmDeleteSub, setConfirmDeleteSub] = useState(null);
+  const [waitlistData, setWaitlistData] = useState({ signups: [], cityStats: [], total: 0 });
+  const [waitlistLoaded, setWaitlistLoaded] = useState(false);
 
   const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
 
@@ -257,6 +260,15 @@ export default function Admin() {
       .catch(err => console.error('[Admin] Load error:', err.message))
       .finally(() => setLoading(false));
   }, [token]);
+
+  // Load waitlist lazily when tab selected
+  useEffect(() => {
+    if (activeTab === 'waitlist' && !waitlistLoaded) {
+      axios.get('/api/admin/waitlist', authHeaders)
+        .then(({ data }) => { setWaitlistData(data); setWaitlistLoaded(true); })
+        .catch(() => {});
+    }
+  }, [activeTab, waitlistLoaded]);
 
   const showMsg = (type, text) => {
     setFormMsg({ type, text });
@@ -651,6 +663,106 @@ export default function Admin() {
                     showMsg={showMsg}
                     inputClass={inputClass}
                   />
+                )}
+
+                {/* ── WAITLIST ── */}
+                {activeTab === 'waitlist' && (
+                  <div>
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+                      <div>
+                        <h3 className="font-heading text-lg font-semibold text-white">Waitlist Signups</h3>
+                        <p className="text-muted text-sm mt-0.5">
+                          {waitlistData.total} total · use this to identify hotspot markets before launch
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const cols = ['Name','Email','Phone','City','Monthly Revenue','Lead Sources','Lead Spend','Signed Up'];
+                          const rows = waitlistData.signups.map(s => [
+                            s.name, s.email, s.phone||'', s.city,
+                            s.monthlyRevenue||'', s.leadSources||'', s.monthlyLeadSpend||'', s.createdAt||''
+                          ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
+                          const blob = new Blob([[cols.join(','),...rows].join('\n')], { type: 'text/csv' });
+                          const a = document.createElement('a');
+                          a.href = URL.createObjectURL(blob); a.download = 'legenly-waitlist.csv'; a.click();
+                        }}
+                        disabled={waitlistData.signups.length === 0}
+                        className="px-4 py-2 text-sm bg-surface border border-subtle rounded-xl text-muted hover:text-white hover:border-muted transition-colors font-medium disabled:opacity-40"
+                      >
+                        ↓ Export CSV
+                      </button>
+                    </div>
+
+                    {/* City hotspot leaderboard */}
+                    {waitlistData.cityStats.length > 0 && (
+                      <div className="mb-8">
+                        <h4 className="text-xs text-muted uppercase tracking-wide font-medium mb-3">Hotspot Cities (by signup count)</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                          {waitlistData.cityStats.slice(0, 12).map((c, i) => (
+                            <div
+                              key={c.city}
+                              className={`bg-surface border rounded-xl p-4 ${i === 0 ? 'border-accent/40' : 'border-subtle'}`}
+                              style={i === 0 ? { boxShadow: '0 0 20px rgba(0,229,160,0.08)' } : {}}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-white text-sm font-medium leading-tight">{c.city}</p>
+                                {i === 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent/15 border border-accent/30 text-accent font-medium flex-shrink-0">#1</span>}
+                              </div>
+                              <p className="text-2xl font-heading font-bold text-accent mt-1">{c.count}</p>
+                              <p className="text-[10px] text-muted">{c.count === 1 ? 'operator' : 'operators'}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Full signup list */}
+                    {waitlistData.signups.length === 0 ? (
+                      <div className="text-center py-16">
+                        <div className="text-4xl mb-3">📬</div>
+                        <p className="text-white font-heading font-semibold">No signups yet</p>
+                        <p className="text-muted text-sm mt-1">
+                          Share <span className="text-accent font-mono">/waitlist</span> with operators to start building your list.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm min-w-[700px]">
+                          <thead>
+                            <tr className="border-b border-subtle text-muted">
+                              <th className="text-left py-3 pr-4 font-medium">Name</th>
+                              <th className="text-left py-3 pr-4 font-medium">Email</th>
+                              <th className="text-left py-3 pr-4 font-medium">Phone</th>
+                              <th className="text-left py-3 pr-4 font-medium">City</th>
+                              <th className="text-left py-3 pr-4 font-medium">Revenue</th>
+                              <th className="text-left py-3 pr-4 font-medium">Lead Sources</th>
+                              <th className="text-left py-3 font-medium">Signed Up</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {waitlistData.signups.map(s => (
+                              <tr key={s.id} className="border-b border-subtle/50 hover:bg-surface/60 transition-colors">
+                                <td className="py-3 pr-4 text-white font-medium">{s.name}</td>
+                                <td className="py-3 pr-4 text-muted">{s.email}</td>
+                                <td className="py-3 pr-4 text-muted">{s.phone || '—'}</td>
+                                <td className="py-3 pr-4">
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 border border-accent/20 text-accent">
+                                    {s.city}
+                                  </span>
+                                </td>
+                                <td className="py-3 pr-4 text-muted text-xs">{s.monthlyRevenue || '—'}</td>
+                                <td className="py-3 pr-4 text-muted text-xs">{s.leadSources || '—'}</td>
+                                <td className="py-3 text-muted text-xs">
+                                  {s.createdAt ? new Date(s.createdAt).toLocaleDateString() : '—'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
                 )}
               </>
             )}

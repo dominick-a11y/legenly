@@ -60,6 +60,18 @@ router.post('/subscribers', (req, res) => {
     return res.status(400).json({ error: 'Email and password are required' });
   }
 
+  // Enforce hard market capacity: 1 subscriber per market (exclusivity guarantee)
+  if (market) {
+    const existing = db.prepare(
+      "SELECT COUNT(*) as count FROM users WHERE market = ? AND role = 'subscriber'"
+    ).get(market);
+    if (existing.count > 0) {
+      return res.status(409).json({
+        error: `Market "${market}" is already taken. Each territory can only have one exclusive subscriber.`
+      });
+    }
+  }
+
   const hash = bcrypt.hashSync(password, 10);
 
   // Set isFounder = 1 for all accounts created before May 1, 2026
@@ -227,6 +239,26 @@ router.delete('/markets/:id', (req, res) => {
 
   db.prepare('DELETE FROM markets WHERE id = ?').run(id);
   res.json({ success: true });
+});
+
+// GET /api/admin/waitlist — all waitlist signups + city hotspot stats
+router.get('/waitlist', (req, res) => {
+  const signups = db.prepare('SELECT * FROM waitlist ORDER BY createdAt DESC').all();
+  const cityStats = db.prepare(
+    'SELECT city, COUNT(*) as count FROM waitlist GROUP BY city ORDER BY count DESC'
+  ).all();
+  res.json({ signups, cityStats, total: signups.length });
+});
+
+// GET /api/admin/waitlist/export — CSV download
+router.get('/waitlist/export', (req, res) => {
+  const signups = db.prepare('SELECT * FROM waitlist ORDER BY createdAt DESC').all();
+  const headers = ['id', 'name', 'email', 'phone', 'city', 'monthlyRevenue', 'leadSources', 'monthlyLeadSpend', 'createdAt'];
+  const rows = signups.map(s => headers.map(h => JSON.stringify(s[h] ?? '')).join(','));
+  const csv = [headers.join(','), ...rows].join('\n');
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename="legenly-waitlist.csv"');
+  res.send(csv);
 });
 
 module.exports = router;

@@ -74,6 +74,7 @@ app.use('/api/leads', require('./routes/leads'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/community', require('./routes/community'));
 app.use('/api/webhook', require('./routes/webhook'));
+app.use('/api/waitlist', require('./routes/waitlist'));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

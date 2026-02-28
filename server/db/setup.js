@@ -93,6 +93,18 @@ function setup() {
       FOREIGN KEY (leadId) REFERENCES leads(id),
       FOREIGN KEY (userId) REFERENCES users(id)
     );
+
+    CREATE TABLE IF NOT EXISTS waitlist (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      phone TEXT,
+      city TEXT NOT NULL,
+      monthlyRevenue TEXT,
+      leadSources TEXT,
+      monthlyLeadSpend TEXT,
+      createdAt TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   // Add new columns to existing tables if they don't exist
