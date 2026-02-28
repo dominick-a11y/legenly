@@ -1,6 +1,9 @@
 const express = require('express');
+const Anthropic = require('@anthropic-ai/sdk');
 const { db } = require('../db/setup');
 const { requireAuth } = require('../middleware/auth');
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const router = express.Router();
 
@@ -128,6 +131,66 @@ router.delete('/reminders/:id', requireAuth, (req, res) => {
     Number(req.params.id), req.user.id
   );
   res.json({ success: true });
+});
+
+// POST /api/leads/:id/ai-pitch — generate AI sales assist for this lead
+router.post('/:id/ai-pitch', requireAuth, async (req, res) => {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return res.status(503).json({ error: 'AI assist is not configured. Add ANTHROPIC_API_KEY to your environment.' });
+  }
+
+  const leadId = Number(req.params.id);
+  const lead = db.prepare('SELECT * FROM leads WHERE id = ?').get(leadId);
+  if (!lead) return res.status(404).json({ error: 'Lead not found' });
+  if (req.user.role !== 'admin' && lead.market !== req.user.market) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  const firstName = lead.name?.split(' ')[0] || lead.name || 'there';
+  const jobSummary = [
+    lead.jobType ? `Job type: ${lead.jobType} cleanout` : '',
+    lead.city ? `Location: ${lead.city}${lead.state ? ', ' + lead.state : ''}` : '',
+    lead.description ? `Their description: "${lead.description}"` : ''
+  ].filter(Boolean).join('\n');
+
+  const prompt = `You are a sales coach for a junk removal operator. A new lead just came in. Help the operator close this job with a personalized, conversational sales approach.
+
+Lead details:
+- Name: ${lead.name}
+- ${jobSummary}
+
+Generate a sales assist in this exact JSON format (respond ONLY with valid JSON, no other text):
+{
+  "opening": "A personalized 1-2 sentence opening line the operator should say when they call. Use the customer's first name (${firstName}). Reference the specific job details — make it feel like you actually read their request, not a template.",
+  "keyPoints": ["Short point 1 (1 sentence)", "Short point 2", "Short point 3"],
+  "objections": [
+    { "objection": "Most likely objection they'll raise", "rebuttal": "How to handle it in 1-2 sentences" },
+    { "objection": "Second likely objection", "rebuttal": "How to handle it" }
+  ],
+  "priceRange": "Suggested price range for this specific job (e.g. '$350–$550') with a brief reason",
+  "closeLines": "A strong 1-sentence close to book the job before hanging up"
+}`;
+
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 600,
+      messages: [{ role: 'user', content: prompt }]
+    });
+
+    const raw = message.content[0]?.text || '';
+    // Extract JSON even if there's surrounding text
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return res.status(500).json({ error: 'AI returned unexpected format' });
+    }
+
+    const pitch = JSON.parse(jsonMatch[0]);
+    res.json(pitch);
+  } catch (err) {
+    console.error('[AI Pitch] Error:', err.message);
+    res.status(500).json({ error: 'AI assist failed. Please try again.' });
+  }
 });
 
 module.exports = router;

@@ -125,6 +125,11 @@ export default function LeadCard({ lead, token, onStatusChange }) {
   const [reminderSavedAt, setReminderSavedAt] = useState('');
   const [reminderSaving, setReminderSaving] = useState(false);
 
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiPitch, setAiPitch] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
+
   // Load existing note on first expand
   useEffect(() => {
     if (noteOpen && !noteLoaded.current) {
@@ -204,6 +209,25 @@ export default function LeadCard({ lead, token, onStatusChange }) {
   const script = lead.jobType && CALL_SCRIPTS[lead.jobType]
     ? CALL_SCRIPTS[lead.jobType].replace(/\[firstName\]/g, firstName)
     : null;
+
+  const fetchAiPitch = async () => {
+    if (aiPitch) { setAiOpen(o => !o); return; }
+    setAiOpen(true);
+    setAiLoading(true);
+    setAiError('');
+    try {
+      const { data } = await axios.post(
+        `/api/leads/${lead.id}/ai-pitch`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setAiPitch(data);
+    } catch (err) {
+      setAiError(err.response?.data?.error || 'AI assist failed. Try again.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const nowLocal = (() => {
     const d = new Date();
@@ -360,6 +384,28 @@ export default function LeadCard({ lead, token, onStatusChange }) {
           </button>
         )}
 
+        {/* AI Assist */}
+        {lead.status !== 'closed' && (
+          <button
+            onClick={fetchAiPitch}
+            className={[
+              'text-xs px-3.5 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5',
+              aiOpen
+                ? 'bg-purple-500/15 border-purple-500/30 text-purple-300'
+                : 'bg-white/5 border-white/10 text-muted hover:text-white hover:bg-white/10'
+            ].join(' ')}
+          >
+            {aiLoading ? (
+              <>
+                <span className="w-2.5 h-2.5 rounded-full border border-purple-400 border-t-transparent animate-spin" />
+                <span>Thinking…</span>
+              </>
+            ) : (
+              <>🤖 AI Assist</>
+            )}
+          </button>
+        )}
+
         {/* Notes toggle */}
         <button
           onClick={() => setNoteOpen(o => !o)}
@@ -368,6 +414,85 @@ export default function LeadCard({ lead, token, onStatusChange }) {
           {noteOpen ? 'Hide Note' : (noteText ? `Note: ${noteText.slice(0, 30)}${noteText.length > 30 ? '…' : ''}` : 'Add Note')}
         </button>
       </div>
+
+      {/* AI Assist panel */}
+      {aiOpen && (
+        <div className="mt-3 border border-purple-500/20 rounded-xl bg-purple-500/5 overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-purple-500/10">
+            <span className="text-sm">🤖</span>
+            <span className="text-xs font-semibold text-purple-300 uppercase tracking-wide">AI Sales Assist</span>
+          </div>
+
+          {aiLoading && (
+            <div className="flex items-center gap-2 px-4 py-6 text-purple-300/60 text-sm">
+              <span className="w-3 h-3 rounded-full border border-purple-400 border-t-transparent animate-spin" />
+              <span>Analyzing lead data…</span>
+            </div>
+          )}
+
+          {aiError && (
+            <div className="px-4 py-4 text-red-400 text-sm">{aiError}</div>
+          )}
+
+          {aiPitch && !aiLoading && (
+            <div className="p-4 space-y-4">
+              {/* Opening line */}
+              <div>
+                <p className="text-[10px] text-purple-400/60 uppercase tracking-widest font-semibold mb-1.5">Opening Line</p>
+                <p className="text-sm text-white leading-relaxed bg-purple-500/10 rounded-lg px-3 py-2.5 border border-purple-500/15">
+                  "{aiPitch.opening}"
+                </p>
+              </div>
+
+              {/* Key points */}
+              {aiPitch.keyPoints?.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-purple-400/60 uppercase tracking-widest font-semibold mb-1.5">Key Talking Points</p>
+                  <ul className="space-y-1">
+                    {aiPitch.keyPoints.map((pt, i) => (
+                      <li key={i} className="text-sm text-white/80 flex items-start gap-2">
+                        <span className="text-purple-400 mt-0.5 flex-shrink-0">›</span>
+                        <span>{pt}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Objections */}
+              {aiPitch.objections?.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-purple-400/60 uppercase tracking-widest font-semibold mb-1.5">Likely Objections</p>
+                  <div className="space-y-2">
+                    {aiPitch.objections.map((o, i) => (
+                      <div key={i} className="bg-bg rounded-lg px-3 py-2 border border-subtle">
+                        <p className="text-xs text-yellow-400 font-medium">"{o.objection}"</p>
+                        <p className="text-xs text-white/70 mt-1">{o.rebuttal}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Price + Close */}
+              <div className="grid grid-cols-2 gap-3">
+                {aiPitch.priceRange && (
+                  <div className="bg-bg rounded-lg px-3 py-2.5 border border-subtle">
+                    <p className="text-[10px] text-purple-400/60 uppercase tracking-widest font-semibold mb-1">Price Range</p>
+                    <p className="text-sm text-accent font-semibold font-mono">{aiPitch.priceRange}</p>
+                  </div>
+                )}
+                {aiPitch.closeLines && (
+                  <div className="bg-bg rounded-lg px-3 py-2.5 border border-subtle">
+                    <p className="text-[10px] text-purple-400/60 uppercase tracking-widest font-semibold mb-1">Close Line</p>
+                    <p className="text-xs text-white/80 italic">"{aiPitch.closeLines}"</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Reminder scheduler (collapsible) */}
       {reminderOpen && lead.status === 'called' && (
