@@ -6,6 +6,7 @@ import Sidebar from '../components/Sidebar.jsx';
 import LeadCard from '../components/LeadCard.jsx';
 import StatsRow from '../components/StatsRow.jsx';
 import Notification from '../components/Notification.jsx';
+import { isThisMonth, parseDate } from '../components/StatsRow.jsx';
 
 const FILTER_OPTIONS = [
   { key: 'all',    label: 'All' },
@@ -13,6 +14,24 @@ const FILTER_OPTIONS = [
   { key: 'called', label: 'Called' },
   { key: 'closed', label: 'Closed' }
 ];
+
+// Estimated average job value (midpoint of min/max) for ROI calculation
+const JOB_VALUE_AVGS = {
+  Garage: 450, Estate: 1150, Appliance: 225, Commercial: 850
+};
+
+function fmtMoney(n) {
+  if (n >= 1000) return `$${(n / 1000).toFixed(1)}k`;
+  return `$${Math.round(n).toLocaleString()}`;
+}
+
+function formatReminderTime(dtStr) {
+  if (!dtStr) return '';
+  return new Date(dtStr).toLocaleString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit'
+  });
+}
 
 export default function Dashboard() {
   const { token, user } = useAuth();
@@ -27,6 +46,7 @@ export default function Dashboard() {
   const [onboardJobFocus, setOnboardJobFocus] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [pushDenied, setPushDenied] = useState(false);
+  const [reminders, setReminders] = useState([]);
   const socketRef = useRef(null);
 
   // ─── Fetch initial leads ─────────────────────────────────────────────────
@@ -38,6 +58,23 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, [token]);
 
+  // ─── Fetch today's reminders ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!token) return;
+    axios
+      .get('/api/leads/reminders/today', { headers: { Authorization: `Bearer ${token}` } })
+      .then(({ data }) => setReminders(data))
+      .catch(() => {});
+  }, [token]);
+
+  const dismissReminder = async (reminderId) => {
+    try {
+      await axios.delete(`/api/leads/reminders/${reminderId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setReminders(prev => prev.filter(r => r.id !== reminderId));
+    } catch {}
+  };
 
   // ─── Request browser push notification permission ─────────────────────────
   useEffect(() => {
@@ -81,7 +118,6 @@ export default function Dashboard() {
 
   // ─── Socket.io real-time connection ──────────────────────────────────────
   useEffect(() => {
-    // Connect to same origin — Vite proxy handles /socket.io → Express
     const socket = io({
       auth: { token },
       transports: ['websocket', 'polling'],
@@ -96,14 +132,11 @@ export default function Dashboard() {
 
     socket.on('newLead', (lead) => {
       console.log('[Socket] New lead received:', lead.name);
-      // Prepend new lead to the feed
       setLeads(prev => [lead, ...prev]);
-      // Add toast notification with a unique id
       setNotifications(prev => [
         ...prev,
         { id: `${lead.id}-${Date.now()}`, lead }
       ]);
-      // Browser push notification (works when tab is in background)
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification(`New Lead — ${lead.market || 'Your Territory'}`, {
           body: `${lead.name} · ${lead.city || ''} · ${lead.jobType || ''}`.replace(/ · $/, ''),
@@ -133,7 +166,7 @@ export default function Dashboard() {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
 
-  // ─── Filter leads ─────────────────────────────────────────────────────────
+  // ─── Derived stats ────────────────────────────────────────────────────────
   const q = searchQuery.trim().toLowerCase();
   const filteredLeads = leads
     .filter(l => filter === 'all' || l.status === filter)
@@ -147,7 +180,6 @@ export default function Dashboard() {
       );
     });
 
-  // Count per filter for badges
   const counts = {
     all:    leads.length,
     new:    leads.filter(l => l.status === 'new').length,
@@ -155,20 +187,47 @@ export default function Dashboard() {
     closed: leads.filter(l => l.status === 'closed').length
   };
 
+  // Pipeline strip values
+  const calledEst = leads
+    .filter(l => l.status === 'called')
+    .reduce((sum, l) => sum + (JOB_VALUE_AVGS[l.jobType] || 350), 0);
+
+  // ROI tracker
+  const closedThisMonth = leads.filter(l => l.status === 'closed' && isThisMonth(l.createdAt));
+  const closedRevenue = closedThisMonth.reduce((sum, l) => sum + (JOB_VALUE_AVGS[l.jobType] || 350), 0);
+  const roiMultiple = closedRevenue > 0 ? (closedRevenue / 500).toFixed(1) : null;
+
+  const PIPELINE_ITEMS = [
+    {
+      key: 'new',
+      icon: '🟢',
+      label: 'New',
+      count: counts.new,
+      sub: null
+    },
+    {
+      key: 'called',
+      icon: '🟡',
+      label: 'Called',
+      count: counts.called,
+      sub: calledEst > 0 ? `Est. ${fmtMoney(calledEst)}` : null
+    },
+    {
+      key: 'closed',
+      icon: '✅',
+      label: 'Closed',
+      count: counts.closed,
+      sub: closedRevenue > 0 ? fmtMoney(closedRevenue) + ' captured' : null
+    }
+  ];
+
   return (
     <div className="flex min-h-screen bg-bg">
-      {/* Desktop spacer — keeps content right of the fixed sidebar */}
       <div className="hidden md:block w-64 flex-shrink-0" />
 
-      {/* Sidebar */}
-      <Sidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* Main content */}
       <main className="flex-1 min-w-0 flex flex-col">
-
         {/* Mobile header */}
         <div className="md:hidden flex items-center gap-3 px-4 py-3.5 border-b border-subtle bg-surface sticky top-0 z-30">
           <button
@@ -184,7 +243,6 @@ export default function Dashboard() {
           <h1 className="font-heading font-bold text-lg">
             <span className="text-white">Legen</span><span className="text-accent">ly</span>
           </h1>
-          {/* Live indicator */}
           <div className="ml-auto flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-accent pulse-dot" />
             <span className="text-xs text-accent font-medium">Live</span>
@@ -203,7 +261,6 @@ export default function Dashboard() {
                 </h2>
                 <p className="text-muted text-sm mt-1">Your exclusive lead territory</p>
               </div>
-              {/* Desktop live indicator */}
               <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-accent/10 border border-accent/20 rounded-full">
                 <span className="w-2 h-2 rounded-full bg-accent pulse-dot" />
                 <span className="text-xs text-accent font-medium">Live</span>
@@ -211,14 +268,104 @@ export default function Dashboard() {
             </div>
 
             {/* Stats */}
-            {!loading && <StatsRow leads={leads} market={user?.market} />}
+            {!loading && <StatsRow leads={leads} />}
+
+            {/* ROI tracker strip */}
+            {!loading && roiMultiple && (
+              <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-accent/5 border border-accent/15 rounded-xl">
+                <span className="text-base flex-shrink-0">💰</span>
+                <p className="text-sm text-white">
+                  Your <span className="text-accent font-semibold">$500/mo</span> subscription has returned an estimated{' '}
+                  <span className="text-accent font-semibold">{fmtMoney(closedRevenue)}</span> this month
+                  {' '}
+                  <span className="text-accent font-bold">({roiMultiple}× ROI)</span>
+                </p>
+              </div>
+            )}
+
+            {/* Pipeline summary strip */}
+            {!loading && leads.length > 0 && (
+              <div className="mb-6 grid grid-cols-3 rounded-xl overflow-hidden border border-subtle">
+                {PIPELINE_ITEMS.map((item, i) => (
+                  <button
+                    key={item.key}
+                    onClick={() => setFilter(item.key)}
+                    className={[
+                      'flex flex-col items-center py-3 px-2 transition-all group',
+                      i < 2 ? 'border-r border-subtle' : '',
+                      filter === item.key
+                        ? 'bg-accent/10'
+                        : 'bg-surface hover:bg-white/5'
+                    ].join(' ')}
+                  >
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="text-sm">{item.icon}</span>
+                      <span className={`text-sm font-heading font-bold ${filter === item.key ? 'text-accent' : 'text-white'}`}>
+                        {item.count}
+                      </span>
+                      <span className={`text-xs font-medium hidden sm:block ${filter === item.key ? 'text-accent' : 'text-muted'}`}>
+                        {item.label}
+                      </span>
+                    </div>
+                    {item.sub && (
+                      <span className="text-[10px] text-muted group-hover:text-white/60 transition-colors">
+                        {item.sub}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Push notification denied banner */}
             {pushDenied && (
-              <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-yellow-400/5 border border-yellow-400/20 rounded-xl text-sm text-yellow-300">
+              <div className="mb-4 flex items-center gap-3 px-4 py-3 bg-yellow-400/5 border border-yellow-400/20 rounded-xl text-sm text-yellow-300">
                 <span className="text-base">🔔</span>
                 <span>Enable browser notifications to get alerted about new leads even when this tab is in the background. Check your browser's site settings.</span>
                 <button onClick={() => setPushDenied(false)} className="ml-auto text-yellow-300/50 hover:text-yellow-300 flex-shrink-0 transition-colors">✕</button>
+              </div>
+            )}
+
+            {/* Reminders banner */}
+            {reminders.length > 0 && (
+              <div className="mb-4 bg-yellow-400/5 border border-yellow-400/20 rounded-xl overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-2.5 border-b border-yellow-400/10">
+                  <span className="text-sm">📅</span>
+                  <span className="text-sm font-semibold text-yellow-300">
+                    {reminders.length === 1 ? '1 callback scheduled for today' : `${reminders.length} callbacks scheduled for today`}
+                  </span>
+                </div>
+                <div className="divide-y divide-yellow-400/10">
+                  {reminders.map(r => (
+                    <div key={r.id} className="flex items-center justify-between px-4 py-2.5 gap-3">
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm text-white font-medium">{r.leadName}</span>
+                        <span className="text-xs text-muted ml-2">{r.leadPhone}</span>
+                        {r.note && <span className="text-xs text-muted ml-2">· {r.note}</span>}
+                        <div className="text-xs text-yellow-400/70 mt-0.5">{formatReminderTime(r.remindAt)}</div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {r.leadPhone && (
+                          <a
+                            href={`tel:${r.leadPhone}`}
+                            className="text-xs px-2.5 py-1 rounded-lg bg-accent/10 border border-accent/20 text-accent hover:bg-accent/20 transition-colors font-medium"
+                          >
+                            Call
+                          </a>
+                        )}
+                        <button
+                          onClick={() => dismissReminder(r.id)}
+                          className="text-muted hover:text-white transition-colors p-1"
+                          title="Dismiss reminder"
+                        >
+                          <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -278,9 +425,7 @@ export default function Dashboard() {
             {/* Lead feed */}
             {loading ? (
               <div className="flex items-center justify-center py-24">
-                <div
-                  className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent spin"
-                />
+                <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent spin" />
               </div>
             ) : filteredLeads.length === 0 ? (
               <div className="text-center py-24">
@@ -310,7 +455,6 @@ export default function Dashboard() {
         </div>
       </main>
 
-
       {/* Onboarding Modal — 2-step */}
       {showOnboarding && (
         <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center px-4">
@@ -318,7 +462,6 @@ export default function Dashboard() {
             className="bg-surface border border-subtle rounded-2xl p-8 max-w-md w-full"
             style={{ boxShadow: '0 25px 60px rgba(0,0,0,0.7), 0 0 40px rgba(0,229,160,0.08)' }}
           >
-            {/* Step indicator */}
             <div className="flex items-center gap-2 mb-6">
               {[1, 2].map(s => (
                 <div
@@ -328,7 +471,6 @@ export default function Dashboard() {
               ))}
             </div>
 
-            {/* Step 1 — Welcome */}
             {onboardingStep === 1 && (
               <div className="text-center">
                 <h1 className="font-heading text-3xl font-extrabold tracking-tight mb-2">
@@ -339,7 +481,6 @@ export default function Dashboard() {
                 </h2>
                 <p className="text-muted text-sm mt-2">You own exclusive lead rights to</p>
                 <p className="text-accent font-heading text-2xl font-bold mt-1">{user?.market}</p>
-
                 <ul className="mt-6 space-y-3 text-left">
                   {[
                     ['⚡', 'Leads flow in automatically from our ad campaigns'],
@@ -353,7 +494,6 @@ export default function Dashboard() {
                     </li>
                   ))}
                 </ul>
-
                 <button
                   onClick={() => setOnboardingStep(2)}
                   className="mt-8 w-full bg-accent hover:bg-accent-dim text-bg font-heading font-bold py-4 rounded-xl transition-colors text-base tracking-wide"
@@ -363,12 +503,10 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Step 2 — Collect info */}
             {onboardingStep === 2 && (
               <div>
                 <h2 className="font-heading text-xl font-bold text-white mb-1">Quick setup</h2>
                 <p className="text-muted text-sm mb-6">Help us personalize your experience</p>
-
                 <div className="space-y-5">
                   <div>
                     <label className="block text-xs text-muted uppercase tracking-wide font-medium mb-2">
@@ -382,7 +520,6 @@ export default function Dashboard() {
                       className="w-full bg-bg border border-subtle rounded-xl px-4 py-3 text-white text-sm placeholder-muted focus:outline-none focus:border-accent transition-colors"
                     />
                   </div>
-
                   <div>
                     <label className="block text-xs text-muted uppercase tracking-wide font-medium mb-2">
                       Job types you focus on (select all that apply)
@@ -406,7 +543,6 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
-
                 <div className="flex gap-3 mt-8">
                   <button
                     onClick={() => setOnboardingStep(1)}

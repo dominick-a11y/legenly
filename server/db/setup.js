@@ -75,6 +75,24 @@ function setup() {
       dismissedAt DATETIME,
       FOREIGN KEY (userId) REFERENCES users(id)
     );
+    CREATE TABLE IF NOT EXISTS post_likes (
+      postId INTEGER NOT NULL,
+      userId INTEGER NOT NULL,
+      UNIQUE(postId, userId),
+      FOREIGN KEY (postId) REFERENCES posts(id),
+      FOREIGN KEY (userId) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS lead_reminders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      leadId INTEGER NOT NULL,
+      userId INTEGER NOT NULL,
+      remindAt TEXT NOT NULL,
+      note TEXT,
+      createdAt TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (leadId) REFERENCES leads(id),
+      FOREIGN KEY (userId) REFERENCES users(id)
+    );
   `);
 
   // Add new columns to existing tables if they don't exist
@@ -83,6 +101,10 @@ function setup() {
   addColumnIfNotExists('users', 'phone', 'TEXT');
   addColumnIfNotExists('users', 'jobFocus', 'TEXT');
   addColumnIfNotExists('markets', 'status', "TEXT DEFAULT 'available'");
+  addColumnIfNotExists('posts', 'tag', 'TEXT');
+  addColumnIfNotExists('posts', 'parentId', 'INTEGER');
+  addColumnIfNotExists('posts', 'pinned', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('posts', 'likeCount', 'INTEGER DEFAULT 0');
 
   const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
   if (userCount.count === 0) {

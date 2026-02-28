@@ -33,7 +33,7 @@ function CallTimerBadge({ createdAt, status }) {
   const elapsedMin = Math.floor(elapsedSec / 60);
 
   if (elapsedMin < 5) {
-    const remaining = 300 - elapsedSec; // 5 min = 300s
+    const remaining = 300 - elapsedSec;
     const mins = Math.floor(remaining / 60);
     const secs = remaining % 60;
     return (
@@ -64,6 +64,13 @@ const JOB_VALUES = {
   Commercial: { min: 500,  max: 1200 },
 };
 
+const CALL_SCRIPTS = {
+  Garage: `Hi [firstName], I'm calling about your garage cleanout request — I have a crew available this week. Could I swing by Wednesday or Thursday to take a quick look and give you a free quote?`,
+  Estate: `Hi [firstName], I'm calling about your estate cleanout request. We handle these with complete care and discretion. Would a same-day or next-day walkthrough work for you?`,
+  Appliance: `Hi [firstName], I'm calling about your appliance removal. We can usually pick those up within 24 hours — does tomorrow morning or afternoon work better for you?`,
+  Commercial: `Hi [firstName], I'm calling about your commercial cleanout. We work around business hours and can handle any volume. When would be a good time for us to take a look?`,
+};
+
 const JOB_TYPE_COLORS = {
   Garage:     { bg: 'bg-blue-500/10',   border: 'border-blue-500/30',   text: 'text-blue-400' },
   Estate:     { bg: 'bg-purple-500/10', border: 'border-purple-500/30', text: 'text-purple-400' },
@@ -81,6 +88,22 @@ function isMobile() {
   return /Mobi|Android/i.test(navigator.userAgent);
 }
 
+function defaultReminderDT() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  d.setHours(9, 0, 0, 0);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T09:00`;
+}
+
+function formatReminderDate(dtStr) {
+  if (!dtStr) return '';
+  return new Date(dtStr).toLocaleString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit'
+  });
+}
+
 export default function LeadCard({ lead, token, onStatusChange }) {
   const statusCfg = STATUS_CONFIG[lead.status] || STATUS_CONFIG.new;
   const jobTypeCfg = JOB_TYPE_COLORS[lead.jobType] || {
@@ -92,6 +115,15 @@ export default function LeadCard({ lead, token, onStatusChange }) {
   const [noteText, setNoteText] = useState('');
   const [noteSaved, setNoteSaved] = useState(false);
   const noteLoaded = useRef(false);
+
+  const [scriptOpen, setScriptOpen] = useState(false);
+  const [scriptCopied, setScriptCopied] = useState(false);
+
+  const [reminderOpen, setReminderOpen] = useState(false);
+  const [reminderDateTime, setReminderDateTime] = useState(defaultReminderDT);
+  const [reminderNote, setReminderNote] = useState('');
+  const [reminderSavedAt, setReminderSavedAt] = useState('');
+  const [reminderSaving, setReminderSaving] = useState(false);
 
   // Load existing note on first expand
   useEffect(() => {
@@ -141,6 +173,44 @@ export default function LeadCard({ lead, token, onStatusChange }) {
     }
   };
 
+  const copyScript = () => {
+    const firstName = lead.name?.split(' ')[0] || lead.name || 'there';
+    const script = (CALL_SCRIPTS[lead.jobType] || '').replace(/\[firstName\]/g, firstName);
+    navigator.clipboard.writeText(script).then(() => {
+      setScriptCopied(true);
+      setTimeout(() => setScriptCopied(false), 2000);
+    });
+  };
+
+  const saveReminder = async () => {
+    if (!reminderDateTime) return;
+    setReminderSaving(true);
+    try {
+      await axios.post(
+        `/api/leads/${lead.id}/reminder`,
+        { remindAt: reminderDateTime, note: reminderNote || null },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setReminderSavedAt(reminderDateTime);
+      setReminderOpen(false);
+    } catch (err) {
+      console.error('[LeadCard] Failed to save reminder:', err.message);
+    } finally {
+      setReminderSaving(false);
+    }
+  };
+
+  const firstName = lead.name?.split(' ')[0] || lead.name || 'there';
+  const script = lead.jobType && CALL_SCRIPTS[lead.jobType]
+    ? CALL_SCRIPTS[lead.jobType].replace(/\[firstName\]/g, firstName)
+    : null;
+
+  const nowLocal = (() => {
+    const d = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  })();
+
   return (
     <div
       className={[
@@ -154,17 +224,14 @@ export default function LeadCard({ lead, token, onStatusChange }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="font-heading font-semibold text-white text-base">{lead.name}</h3>
-            {/* Status badge */}
             <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${statusCfg.bg} ${statusCfg.border} ${statusCfg.text}`}>
               {statusCfg.label}
             </span>
-            {/* Job type badge */}
             {lead.jobType && (
               <span className={`text-xs px-2 py-0.5 rounded-full border ${jobTypeCfg.bg} ${jobTypeCfg.border} ${jobTypeCfg.text}`}>
                 {lead.jobType}
               </span>
             )}
-            {/* Call timer badge — only for new leads */}
             <CallTimerBadge createdAt={lead.createdAt} status={lead.status} />
           </div>
           <div className="flex items-center gap-2 mt-1 text-xs text-muted flex-wrap">
@@ -173,23 +240,21 @@ export default function LeadCard({ lead, token, onStatusChange }) {
           </div>
         </div>
 
-        {/* Contact info + Click to Call */}
+        {/* Contact info */}
         <div className="text-right flex-shrink-0 flex flex-col items-end gap-1">
           {lead.phone && (
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-accent">
-                {lead.phone}
-              </span>
+              <span className="text-sm font-medium text-accent">{lead.phone}</span>
               <button
                 onClick={handleCallClick}
                 title={isMobile() ? `Call ${lead.phone}` : `Copy ${lead.phone}`}
                 className="flex items-center justify-center w-7 h-7 rounded-lg bg-accent/10 border border-accent/20 text-accent hover:bg-accent/20 transition-colors relative"
               >
-                {copyMsg ? (
+                {copyMsg && (
                   <span className="text-[9px] font-bold absolute -top-6 left-1/2 -translate-x-1/2 bg-surface border border-subtle text-accent px-1.5 py-0.5 rounded whitespace-nowrap">
                     {copyMsg}
                   </span>
-                ) : null}
+                )}
                 <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/>
                 </svg>
@@ -209,9 +274,7 @@ export default function LeadCard({ lead, token, onStatusChange }) {
 
       {/* Description */}
       {lead.description && (
-        <p className="text-sm text-muted mt-3 leading-relaxed line-clamp-2">
-          {lead.description}
-        </p>
+        <p className="text-sm text-muted mt-3 leading-relaxed line-clamp-2">{lead.description}</p>
       )}
 
       {/* Estimated job value */}
@@ -221,6 +284,22 @@ export default function LeadCard({ lead, token, onStatusChange }) {
           <span className="text-xs font-semibold text-accent font-mono">
             ${JOB_VALUES[lead.jobType].min.toLocaleString()}–${JOB_VALUES[lead.jobType].max.toLocaleString()}
           </span>
+        </div>
+      )}
+
+      {/* Call script (collapsible) */}
+      {script && scriptOpen && (
+        <div className="mt-3 border border-accent/20 rounded-xl bg-accent/5 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-accent uppercase tracking-wide">📞 Call Script</span>
+            <button
+              onClick={copyScript}
+              className="text-xs px-2.5 py-1 rounded-lg bg-accent/10 border border-accent/20 text-accent hover:bg-accent/20 transition-colors"
+            >
+              {scriptCopied ? '✓ Copied!' : 'Copy'}
+            </button>
+          </div>
+          <p className="text-sm text-white leading-relaxed">{script}</p>
         </div>
       )}
 
@@ -251,6 +330,36 @@ export default function LeadCard({ lead, token, onStatusChange }) {
           </span>
         )}
 
+        {/* Script toggle — show for new/called leads */}
+        {script && lead.status !== 'closed' && (
+          <button
+            onClick={() => setScriptOpen(o => !o)}
+            className={[
+              'text-xs px-3.5 py-1.5 rounded-lg border transition-colors',
+              scriptOpen
+                ? 'bg-accent/15 border-accent/30 text-accent'
+                : 'bg-white/5 border-white/10 text-muted hover:text-white hover:bg-white/10'
+            ].join(' ')}
+          >
+            📞 Script
+          </button>
+        )}
+
+        {/* Schedule Callback — show for called leads */}
+        {lead.status === 'called' && (
+          <button
+            onClick={() => setReminderOpen(o => !o)}
+            className={[
+              'text-xs px-3.5 py-1.5 rounded-lg border transition-colors',
+              reminderOpen || reminderSavedAt
+                ? 'bg-yellow-400/10 border-yellow-400/30 text-yellow-400'
+                : 'bg-white/5 border-white/10 text-muted hover:text-white hover:bg-white/10'
+            ].join(' ')}
+          >
+            {reminderSavedAt ? `📅 ${formatReminderDate(reminderSavedAt)}` : '📅 Schedule Callback'}
+          </button>
+        )}
+
         {/* Notes toggle */}
         <button
           onClick={() => setNoteOpen(o => !o)}
@@ -259,6 +368,50 @@ export default function LeadCard({ lead, token, onStatusChange }) {
           {noteOpen ? 'Hide Note' : (noteText ? `Note: ${noteText.slice(0, 30)}${noteText.length > 30 ? '…' : ''}` : 'Add Note')}
         </button>
       </div>
+
+      {/* Reminder scheduler (collapsible) */}
+      {reminderOpen && lead.status === 'called' && (
+        <div className="mt-3 border border-yellow-400/20 rounded-xl bg-yellow-400/5 p-4">
+          <p className="text-xs font-semibold text-yellow-400 mb-3">📅 Schedule Callback</p>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs text-muted mb-1.5">Date &amp; time</label>
+              <input
+                type="datetime-local"
+                value={reminderDateTime}
+                min={nowLocal}
+                onChange={e => setReminderDateTime(e.target.value)}
+                className="w-full bg-bg border border-subtle rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-yellow-400/50 transition-colors"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-muted mb-1.5">Note (optional)</label>
+              <input
+                type="text"
+                value={reminderNote}
+                onChange={e => setReminderNote(e.target.value)}
+                placeholder="e.g. Asked about weekend availability"
+                className="w-full bg-bg border border-subtle rounded-lg px-3 py-2 text-white text-sm placeholder-muted focus:outline-none focus:border-yellow-400/50 transition-colors"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setReminderOpen(false)}
+                className="px-3 py-1.5 text-xs text-muted border border-subtle rounded-lg hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveReminder}
+                disabled={reminderSaving}
+                className="flex-1 px-3 py-1.5 text-xs bg-yellow-400/20 border border-yellow-400/30 text-yellow-400 rounded-lg hover:bg-yellow-400/30 transition-colors font-medium disabled:opacity-50"
+              >
+                {reminderSaving ? 'Saving…' : 'Save Reminder'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Notes section (collapsible) */}
       {noteOpen && (

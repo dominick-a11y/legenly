@@ -85,4 +85,49 @@ router.get('/:id/note', requireAuth, (req, res) => {
   res.json({ note: row?.note || '' });
 });
 
+// POST /api/leads/:id/reminder — set a callback reminder for this lead
+router.post('/:id/reminder', requireAuth, (req, res) => {
+  const leadId = Number(req.params.id);
+  const userId = req.user.id;
+  const { remindAt, note } = req.body || {};
+
+  if (!remindAt) return res.status(400).json({ error: 'remindAt is required' });
+
+  const lead = db.prepare('SELECT * FROM leads WHERE id = ?').get(leadId);
+  if (!lead) return res.status(404).json({ error: 'Lead not found' });
+  if (req.user.role !== 'admin' && lead.market !== req.user.market) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  // Replace any existing reminder for this user+lead
+  db.prepare('DELETE FROM lead_reminders WHERE leadId = ? AND userId = ?').run(leadId, userId);
+  const result = db.prepare(
+    'INSERT INTO lead_reminders (leadId, userId, remindAt, note) VALUES (?, ?, ?, ?)'
+  ).run(leadId, userId, remindAt, note || null);
+
+  res.status(201).json({ id: result.lastInsertRowid, leadId, userId, remindAt, note });
+});
+
+// GET /api/leads/reminders/today — reminders due today for current user
+router.get('/reminders/today', requireAuth, (req, res) => {
+  const userId = req.user.id;
+  const rows = db.prepare(`
+    SELECT r.*, l.name as leadName, l.phone as leadPhone, l.jobType, l.status as leadStatus, l.market
+    FROM lead_reminders r
+    JOIN leads l ON l.id = r.leadId
+    WHERE r.userId = ?
+      AND date(r.remindAt) <= date('now')
+    ORDER BY r.remindAt ASC
+  `).all(userId);
+  res.json(rows);
+});
+
+// DELETE /api/leads/reminders/:id — dismiss a reminder
+router.delete('/reminders/:id', requireAuth, (req, res) => {
+  db.prepare('DELETE FROM lead_reminders WHERE id = ? AND userId = ?').run(
+    Number(req.params.id), req.user.id
+  );
+  res.json({ success: true });
+});
+
 module.exports = router;
