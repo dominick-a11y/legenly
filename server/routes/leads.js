@@ -2,10 +2,62 @@ const express = require('express');
 const Anthropic = require('@anthropic-ai/sdk');
 const { db } = require('../db/setup');
 const { requireAuth } = require('../middleware/auth');
+const { notifyMarketOperators } = require('../services/notify');
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const router = express.Router();
+
+// ─── PUBLIC: POST /api/leads/public — homeowner submits a quote request ─────
+// No auth required. Routes the lead to the right market based on city.
+router.post('/public', async (req, res) => {
+  const { name, phone, email, city, state, jobType, description } = req.body || {};
+
+  if (!name || !phone || !city) {
+    return res.status(400).json({ error: 'Name, phone, and city are required.' });
+  }
+
+  // Find which market covers this city (case-insensitive match)
+  const markets = db.prepare('SELECT * FROM markets').all();
+  const normalizedCity = city.trim().toLowerCase();
+
+  let matchedMarket = null;
+  for (const m of markets) {
+    const marketCities = m.cities.split(',').map(c => c.trim().toLowerCase());
+    if (marketCities.includes(normalizedCity)) {
+      matchedMarket = m.name;
+      break;
+    }
+  }
+
+  const result = db.prepare(`
+    INSERT INTO leads (name, phone, email, city, state, jobType, description, market, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new')
+  `).run(
+    name.trim(),
+    phone.trim(),
+    email?.trim() || null,
+    city.trim(),
+    state?.trim() || null,
+    jobType || null,
+    description?.trim() || null,
+    matchedMarket
+  );
+
+  const newLead = db.prepare('SELECT * FROM leads WHERE id = ?').get(result.lastInsertRowid);
+
+  // Real-time push to operator dashboard (if market matched)
+  if (matchedMarket) {
+    req.app.locals.io?.to(matchedMarket).emit('newLead', newLead);
+  }
+
+  // SMS/notify operators async — don't block the response
+  notifyMarketOperators(newLead, db).catch(err =>
+    console.error('[Public Lead] Notify error:', err.message)
+  );
+
+  res.status(201).json({ success: true, id: newLead.id });
+});
 
 // GET /api/leads — returns leads for the authenticated subscriber's market
 router.get('/', requireAuth, (req, res) => {
