@@ -31,6 +31,9 @@ const io = new Server(server, {
 // Expose io instance to route handlers via app.locals
 app.locals.io = io;
 
+// Track connected sockets per user to prevent duplicate notifications
+const userSockets = new Map(); // userId -> socketId
+
 // Authenticate socket connections using the JWT from handshake.auth.token
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
@@ -46,18 +49,26 @@ io.use((socket, next) => {
 });
 
 io.on('connection', (socket) => {
-  const { market, role, name } = socket.user;
+  const { id: userId, market, role, name } = socket.user;
   console.log(`[Socket] Connected: ${name} (${role})`);
+
+  // Disconnect any previous socket for this user (duplicate tab / stale connection)
+  const prevSocketId = userSockets.get(userId);
+  if (prevSocketId && prevSocketId !== socket.id) {
+    const prevSocket = io.sockets.sockets.get(prevSocketId);
+    if (prevSocket) prevSocket.disconnect(true);
+  }
+  userSockets.set(userId, socket.id);
 
   // Auto-join the community room and the market room
   socket.join('community');
-  // Auto-join the market room so they receive real-time lead events
   if (market) {
     socket.join(market);
     console.log(`[Socket] ${name} joined room: "${market}"`);
   }
 
   socket.on('disconnect', () => {
+    if (userSockets.get(userId) === socket.id) userSockets.delete(userId);
     console.log(`[Socket] Disconnected: ${name}`);
   });
 });

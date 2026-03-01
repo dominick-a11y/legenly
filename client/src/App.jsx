@@ -2,10 +2,12 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import Login from './pages/Login.jsx';
+import Register from './pages/Register.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Admin from './pages/Admin.jsx';
 import Community from './pages/Community.jsx';
 import Waitlist from './pages/Waitlist.jsx';
+import LeadForm from './pages/LeadForm.jsx';
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { isAuthenticated, user } = useAuth();
@@ -53,7 +55,9 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route path="/register" element={<Register />} />
       <Route path="/waitlist" element={<Waitlist />} />
+      <Route path="/get-quote" element={<LeadForm />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

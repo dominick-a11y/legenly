@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useSearchParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar.jsx';
 import LeadCard from '../components/LeadCard.jsx';
 import StatsRow from '../components/StatsRow.jsx';
@@ -35,6 +36,7 @@ function formatReminderTime(dtStr) {
 
 export default function Dashboard() {
   const { token, user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -47,6 +49,9 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [pushDenied, setPushDenied] = useState(false);
   const [reminders, setReminders] = useState([]);
+  const [subStatus, setSubStatus] = useState(null); // 'none' | 'active' | 'past_due' | 'cancelled'
+  const [subLoading, setSubLoading] = useState(false);
+  const [billingSuccess, setBillingSuccess] = useState(false);
   const socketRef = useRef(null);
 
   // ─── Fetch initial leads ─────────────────────────────────────────────────
@@ -66,6 +71,37 @@ export default function Dashboard() {
       .then(({ data }) => setReminders(data))
       .catch(() => {});
   }, [token]);
+
+  // ─── Billing status check ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!token || user?.role === 'admin') return;
+    axios.get('/api/billing/status', { headers: { Authorization: `Bearer ${token}` } })
+      .then(({ data }) => setSubStatus(data.status))
+      .catch(() => {});
+  }, [token, user]);
+
+  // ─── Handle ?billing=success redirect from Stripe ────────────────────────
+  useEffect(() => {
+    if (searchParams.get('billing') === 'success') {
+      setBillingSuccess(true);
+      setSubStatus('active');
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  const handleSubscribe = async () => {
+    setSubLoading(true);
+    try {
+      const { data } = await axios.post(
+        '/api/billing/create-checkout',
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      window.location.href = data.url;
+    } catch {
+      setSubLoading(false);
+    }
+  };
 
   const dismissReminder = async (reminderId) => {
     try {
@@ -314,6 +350,39 @@ export default function Dashboard() {
                     )}
                   </button>
                 ))}
+              </div>
+            )}
+
+            {/* Billing success banner */}
+            {billingSuccess && (
+              <div className="mb-4 flex items-center gap-3 px-4 py-3 bg-accent/5 border border-accent/20 rounded-xl text-sm text-accent">
+                <span className="text-base">🎉</span>
+                <span className="font-medium">Subscription activated — leads are flowing to your dashboard in real time!</span>
+                <button onClick={() => setBillingSuccess(false)} className="ml-auto text-accent/50 hover:text-accent flex-shrink-0 transition-colors">✕</button>
+              </div>
+            )}
+
+            {/* Subscription inactive banner */}
+            {subStatus && subStatus !== 'active' && !billingSuccess && (
+              <div className="mb-4 flex items-start gap-3 px-4 py-4 bg-yellow-400/5 border border-yellow-400/20 rounded-xl">
+                <span className="text-base flex-shrink-0 mt-0.5">⚠️</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-yellow-300">
+                    {subStatus === 'past_due' ? 'Payment past due' : 'Subscription not active'}
+                  </p>
+                  <p className="text-xs text-yellow-300/70 mt-0.5">
+                    {subStatus === 'past_due'
+                      ? 'Update your payment method to keep receiving leads.'
+                      : 'Activate your $500/mo subscription to start receiving exclusive leads for your territory.'}
+                  </p>
+                </div>
+                <button
+                  onClick={handleSubscribe}
+                  disabled={subLoading}
+                  className="flex-shrink-0 text-xs font-bold px-3 py-2 rounded-lg bg-yellow-400/10 border border-yellow-400/30 text-yellow-300 hover:bg-yellow-400/20 transition-colors disabled:opacity-50"
+                >
+                  {subLoading ? 'Loading…' : subStatus === 'past_due' ? 'Update Payment' : 'Subscribe Now →'}
+                </button>
               </div>
             )}
 
