@@ -8,6 +8,9 @@ import Admin from './pages/Admin.jsx';
 import Community from './pages/Community.jsx';
 import Waitlist from './pages/Waitlist.jsx';
 import LeadForm from './pages/LeadForm.jsx';
+import Bundle from './pages/Bundle.jsx';
+import Webinar from './pages/Webinar.jsx';
+import Pipeline from './pages/Pipeline.jsx';
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { isAuthenticated, user } = useAuth();
@@ -58,6 +61,16 @@ function AppRoutes() {
       <Route path="/register" element={<Register />} />
       <Route path="/waitlist" element={<Waitlist />} />
       <Route path="/get-quote" element={<LeadForm />} />
+      <Route path="/bundle" element={<Bundle />} />
+      <Route path="/webinar" element={<Webinar />} />
+      <Route
+        path="/pipeline"
+        element={
+          <ProtectedRoute adminOnly>
+            <Pipeline />
+          </ProtectedRoute>
+        }
+      />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

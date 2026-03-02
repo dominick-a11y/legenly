@@ -91,6 +91,9 @@ app.use('/api/community', require('./routes/community'));
 app.use('/api/webhook', require('./routes/webhook'));
 app.use('/api/waitlist', require('./routes/waitlist'));
 app.use('/api/billing', require('./routes/billing'));
+app.use('/api/bundle', require('./routes/bundle'));
+app.use('/api/webinar', require('./routes/webinar'));
+app.use('/api/pipeline', require('./routes/pipeline'));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

@@ -105,6 +105,41 @@ function setup() {
       monthlyLeadSpend TEXT,
       createdAt TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS bundle_reservations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      phone TEXT NOT NULL,
+      city TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      createdAt TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS webinar_registrations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      phone TEXT,
+      business TEXT,
+      createdAt TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS pipeline_contacts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      phone TEXT,
+      email TEXT,
+      source TEXT DEFAULT 'Other',
+      stage TEXT DEFAULT 'new',
+      notes TEXT,
+      followUpAt TEXT,
+      dealValue REAL DEFAULT 997,
+      addedBy INTEGER,
+      createdAt TEXT DEFAULT (datetime('now')),
+      updatedAt TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (addedBy) REFERENCES users(id)
+    );
   `);
 
   // Ensure all markets exist (safe to run on existing databases)

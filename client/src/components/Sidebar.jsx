@@ -12,6 +12,7 @@ const NAV_ITEMS = {
   ],
   admin: [
     { label: 'Admin Panel', path: '/admin', icon: '🛠️' },
+    { label: 'Pipeline', path: '/pipeline', icon: '💼' },
     { label: 'Analytics', path: null, icon: '📊', disabled: true },
     { label: 'Settings', path: null, icon: '⚙️', disabled: true }
   ]
