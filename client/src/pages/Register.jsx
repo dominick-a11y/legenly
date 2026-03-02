@@ -37,13 +37,17 @@ export default function Register() {
       });
       login(authData.token, authData.user);
 
-      // 2. Kick off Stripe checkout
-      const { data: billing } = await axios.post(
-        '/api/billing/create-checkout',
-        {},
-        { headers: { Authorization: `Bearer ${authData.token}` } }
-      );
-      window.location.href = billing.url;
+      // 2. Kick off Stripe checkout (skip if not configured yet)
+      try {
+        const { data: billing } = await axios.post(
+          '/api/billing/create-checkout',
+          {},
+          { headers: { Authorization: `Bearer ${authData.token}` } }
+        );
+        window.location.href = billing.url;
+      } catch {
+        navigate('/dashboard');
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'Something went wrong. Please try again.');
       setLoading(false);

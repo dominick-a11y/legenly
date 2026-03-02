@@ -107,6 +107,24 @@ function setup() {
     );
   `);
 
+  // Ensure all markets exist (safe to run on existing databases)
+  const upsertMarket = db.prepare(
+    "INSERT OR IGNORE INTO markets (name, cities, status) VALUES (?, ?, 'available')"
+  );
+  const defaultMarkets = [
+    ['Forsyth County GA', 'Cumming,Alpharetta,Johns Creek,Suwanee'],
+    ['North Atlanta GA', 'Roswell,Sandy Springs,Dunwoody,Brookhaven'],
+    ['Gwinnett County GA', 'Lawrenceville,Duluth,Buford,Sugar Hill'],
+    ['Cherokee County GA', 'Canton,Woodstock,Ball Ground,Holly Springs'],
+    ['Cobb County GA', 'Marietta,Smyrna,Kennesaw,Acworth'],
+    ['North Dallas TX', 'Plano,Frisco,Allen,McKinney'],
+    ['South Charlotte NC', 'Pineville,Matthews,Ballantyne,Fort Mill'],
+    ['North Charlotte NC', 'Huntersville,Cornelius,Davidson,Mooresville'],
+    ['Nashville TN', 'Brentwood,Franklin,Nolensville,Spring Hill'],
+    ['North Tampa FL', 'Wesley Chapel,Zephyrhills,Land O Lakes,Lutz'],
+  ];
+  for (const [name, cities] of defaultMarkets) upsertMarket.run(name, cities);
+
   // Add new columns to existing tables if they don't exist
   addColumnIfNotExists('leads', 'assignedMarket', 'TEXT');
   addColumnIfNotExists('users', 'isFounder', 'INTEGER DEFAULT 0');
@@ -128,10 +146,17 @@ function setup() {
     const adminHash = bcrypt.hashSync('admin123', 10);
     const hunterHash = bcrypt.hashSync('hunter123', 10);
 
-    db.prepare("INSERT INTO markets (name, cities, status) VALUES (?, ?, 'available')").run(
-      'Forsyth County GA',
-      'Cumming,Alpharetta,Johns Creek,Suwanee'
-    );
+    const insertMarket = db.prepare("INSERT INTO markets (name, cities, status) VALUES (?, ?, 'available')");
+    insertMarket.run('Forsyth County GA', 'Cumming,Alpharetta,Johns Creek,Suwanee');
+    insertMarket.run('North Atlanta GA', 'Roswell,Sandy Springs,Dunwoody,Brookhaven');
+    insertMarket.run('Gwinnett County GA', 'Lawrenceville,Duluth,Buford,Sugar Hill');
+    insertMarket.run('Cherokee County GA', 'Canton,Woodstock,Ball Ground,Holly Springs');
+    insertMarket.run('Cobb County GA', 'Marietta,Smyrna,Kennesaw,Acworth');
+    insertMarket.run('North Dallas TX', 'Plano,Frisco,Allen,McKinney');
+    insertMarket.run('South Charlotte NC', 'Pineville,Matthews,Ballantyne,Fort Mill');
+    insertMarket.run('North Charlotte NC', 'Huntersville,Cornelius,Davidson,Mooresville');
+    insertMarket.run('Nashville TN', 'Brentwood,Franklin,Nolensville,Spring Hill');
+    insertMarket.run('North Tampa FL', 'Wesley Chapel,Zephyrhills,Land O Lakes,Lutz');
 
     db.prepare(
       "INSERT INTO users (email, password, role, name, isFounder) VALUES (?, ?, 'admin', ?, 1)"

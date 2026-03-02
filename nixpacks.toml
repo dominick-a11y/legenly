@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake"]
+aptPkgs = ["python3", "make", "g++", "libatomic1"]
 
 [phases.install]
 cmds = ["npm run build"]
