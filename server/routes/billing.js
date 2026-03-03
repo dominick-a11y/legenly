@@ -4,13 +4,22 @@ const Stripe = require('stripe');
 const { db } = require('../db/setup');
 const { requireAuth } = require('../middleware/auth');
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key || key.startsWith('sk_test_<') || key === 'sk_test_placeholder') {
+    return null;
+  }
+  return new Stripe(key);
+}
 
 // ─── POST /api/billing/create-checkout ───────────────────────────────────────
 // Creates a Stripe checkout session for the $500/mo subscription
 
 router.post('/create-checkout', requireAuth, async (req, res) => {
+  const stripe = getStripe();
+  if (!stripe) return res.status(503).json({ error: 'Billing not configured yet.' });
   try {
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
 
@@ -60,6 +69,8 @@ router.post('/create-checkout', requireAuth, async (req, res) => {
 // Opens Stripe's hosted billing portal (cancel, update card, view invoices)
 
 router.post('/portal', requireAuth, async (req, res) => {
+  const stripe = getStripe();
+  if (!stripe) return res.status(503).json({ error: 'Billing not configured yet.' });
   try {
     const user = db.prepare('SELECT stripeCustomerId FROM users WHERE id = ?').get(req.user.id);
     if (!user?.stripeCustomerId) {
@@ -103,10 +114,11 @@ router.post(
   async (req, res) => {
     const sig = req.headers['stripe-signature'];
     const secret = process.env.STRIPE_WEBHOOK_SECRET;
+    const stripe = getStripe();
 
     let event;
     try {
-      event = secret
+      event = (stripe && secret)
         ? stripe.webhooks.constructEvent(req.body, sig, secret)
         : JSON.parse(req.body.toString());
     } catch (err) {
