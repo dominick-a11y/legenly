@@ -8,9 +8,7 @@ const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
 
 function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY;
-  if (!key || key.startsWith('sk_test_<') || key === 'sk_test_placeholder') {
-    return null;
-  }
+  if (!key || key === 'sk_test_placeholder' || key.startsWith('sk_test_<')) return null;
   return new Stripe(key);
 }
 
