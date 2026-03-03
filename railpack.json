@@ -1,0 +1,11 @@
+{
+  "build": {
+    "cmd": "npm run build"
+  },
+  "start": {
+    "cmd": "npm start"
+  },
+  "apt": {
+    "packages": ["python3", "make", "g++", "libatomic1"]
+  }
+}
