@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
+import Landing from './pages/Landing.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -14,7 +15,7 @@ import Pipeline from './pages/Pipeline.jsx';
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { isAuthenticated, user } = useAuth();
-  if (!isAuthenticated) return <Navigate to="/" replace />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (adminOnly && user?.role !== 'admin') return <Navigate to="/dashboard" replace />;
   return children;
 }
@@ -26,6 +27,16 @@ function AppRoutes() {
     <Routes>
       <Route
         path="/"
+        element={
+          isAuthenticated ? (
+            <Navigate to={user?.role === 'admin' ? '/admin' : '/dashboard'} replace />
+          ) : (
+            <Landing />
+          )
+        }
+      />
+      <Route
+        path="/login"
         element={
           isAuthenticated ? (
             <Navigate to={user?.role === 'admin' ? '/admin' : '/dashboard'} replace />

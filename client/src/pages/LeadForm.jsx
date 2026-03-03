@@ -34,6 +34,9 @@ export default function LeadForm() {
     setLoading(true);
     try {
       await axios.post('/api/leads/public', form);
+      if (typeof window !== 'undefined' && window.fbq) {
+        window.fbq('track', 'Lead');
+      }
       setSubmitted(true);
     } catch (err) {
       setError(err.response?.data?.error || 'Something went wrong. Please try again.');
