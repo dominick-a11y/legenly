@@ -596,12 +596,25 @@ export default function Waitlist() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [stats, setStats] = useState({ total: 0, cities: [] });
+  const [showOptional, setShowOptional] = useState(false);
+  const [showStickyCta, setShowStickyCta] = useState(false);
   const formRef = useRef(null);
+  const heroRef = useRef(null);
 
   const slotsLeft = TOTAL_SLOTS - 1; // 1 active subscriber (Hunter)
+  const liveTotal = stats.total > 0 ? stats.total : 30; // fallback to 30 until API responds
 
   useEffect(() => {
     axios.get('/api/waitlist/stats').then(({ data }) => setStats(data)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const heroBottom = heroRef.current?.getBoundingClientRect().bottom ?? 0;
+      setShowStickyCta(heroBottom < 0);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   const scrollToForm = () => formRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -663,12 +676,39 @@ export default function Waitlist() {
           </div>
           <h1 className="font-heading text-4xl font-extrabold text-white mb-3">You're on the list.</h1>
           <p className="text-muted text-lg mb-2">
-            We'll reach out when a slot in{' '}
-            <span className="text-accent font-semibold">{form.city}</span> opens.
+            We'll reach out within <span className="text-white font-semibold">24–48 hours</span> to discuss your{' '}
+            <span className="text-accent font-semibold">{form.city}</span> territory.
           </p>
-          <p className="text-muted text-sm mb-10">
-            We'll keep you updated on launch dates and competitor demand in your area.
+          <p className="text-muted text-sm mb-8">
+            Keep an eye on your phone — Dominick calls personally.
           </p>
+
+          {/* Referral nudge */}
+          <div
+            className="rounded-2xl p-6 mb-6 text-left"
+            style={{ background: 'rgba(0,229,160,0.06)', border: '1px solid rgba(0,229,160,0.15)' }}
+          >
+            <p className="text-accent text-xs uppercase tracking-widest font-semibold mb-2">Know another junk removal operator?</p>
+            <p className="text-white text-sm font-medium mb-3">
+              Share Legenly — if they sign up, you both get priority placement on our launch list.
+            </p>
+            <button
+              onClick={() => {
+                const url = window.location.origin + '/waitlist';
+                if (navigator.share) {
+                  navigator.share({ title: 'Legenly — Exclusive Junk Removal Leads', url });
+                } else {
+                  navigator.clipboard.writeText(url);
+                  alert('Link copied!');
+                }
+              }}
+              className="w-full py-3 rounded-xl text-sm font-bold font-heading text-bg bg-accent hover:bg-accent-dim transition-colors"
+              style={{ boxShadow: '0 0 20px rgba(0,229,160,0.2)' }}
+            >
+              Share with a Fellow Operator →
+            </button>
+          </div>
+
           {stats.cities.length > 0 && (
             <div
               className="rounded-2xl p-6 text-left"
@@ -728,7 +768,7 @@ export default function Waitlist() {
       </nav>
 
       {/* ── Hero ─────────────────────────────────────────────────────────────── */}
-      <section className="relative z-10 pt-16 pb-10 px-4 text-center max-w-4xl mx-auto">
+      <section ref={heroRef} className="relative z-10 pt-16 pb-10 px-4 text-center max-w-4xl mx-auto">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-semibold mb-10">
           <span className="w-1.5 h-1.5 rounded-full bg-accent pulse-dot" />
           {slotsLeft} founding slots remaining — launching April 7
@@ -1062,12 +1102,12 @@ export default function Waitlist() {
               <span className="text-accent">It won't be for long.</span>
             </h2>
             <p className="text-muted text-sm leading-relaxed max-w-md mx-auto relative">
-              30+ operators have already joined the waitlist. Founding slots are capped at 50.
+              {liveTotal}+ operators have already joined the waitlist. Founding slots are capped at 50.
               When they're gone, the price goes up and exclusivity becomes harder to guarantee.
             </p>
             <div className="mt-5 flex justify-center gap-8 relative">
               {[
-                { val: '30+', label: 'on waitlist' },
+                { val: `${liveTotal}+`, label: 'on waitlist' },
                 { val: `${slotsLeft}`, label: 'slots left' },
                 { val: 'Apr 7', label: 'launch date' },
               ].map(({ val, label }) => (
@@ -1080,6 +1120,34 @@ export default function Waitlist() {
           </div>
         </Reveal>
       </section>
+
+      {/* ── Sticky mobile CTA — appears after hero scrolls out ────────────────── */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-50 md:hidden transition-transform duration-300"
+        style={{ transform: showStickyCta ? 'translateY(0)' : 'translateY(100%)' }}
+      >
+        <div
+          className="mx-3 mb-3 rounded-2xl px-5 py-4 flex items-center justify-between gap-4"
+          style={{
+            background: 'rgba(10,10,18,0.97)',
+            border: '1px solid rgba(0,229,160,0.25)',
+            boxShadow: '0 -4px 40px rgba(0,0,0,0.6), 0 0 24px rgba(0,229,160,0.12)',
+            backdropFilter: 'blur(12px)',
+          }}
+        >
+          <div className="min-w-0">
+            <p className="text-white font-heading font-bold text-sm leading-tight">{slotsLeft} slots left</p>
+            <p className="text-muted text-xs">No payment. Lock in your city now.</p>
+          </div>
+          <button
+            onClick={scrollToForm}
+            className="shrink-0 px-5 py-2.5 bg-accent text-bg font-heading font-bold text-sm rounded-xl transition-all active:scale-95"
+            style={{ boxShadow: '0 0 20px rgba(0,229,160,0.3)' }}
+          >
+            Claim City →
+          </button>
+        </div>
+      </div>
 
       {/* ── Waitlist form ─────────────────────────────────────────────────────── */}
       <section ref={formRef} className="relative z-10 max-w-2xl mx-auto px-4 md:px-8 pb-36">
@@ -1170,56 +1238,72 @@ export default function Waitlist() {
                 />
               </div>
 
+              {/* Optional qualifier fields — collapsed by default to reduce friction */}
               <div>
-                <label className="block text-xs text-muted uppercase tracking-wide font-medium mb-1.5">
-                  Monthly revenue range
-                </label>
-                <select
-                  className={`${inputClass} appearance-none cursor-pointer`}
-                  value={form.monthlyRevenue}
-                  onChange={e => setForm(p => ({ ...p, monthlyRevenue: e.target.value }))}
+                <button
+                  type="button"
+                  onClick={() => setShowOptional(p => !p)}
+                  className="w-full flex items-center justify-between text-xs text-muted hover:text-white transition-colors py-1"
                 >
-                  <option value="">Select range (optional)</option>
-                  {MONTHLY_REVENUE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </div>
+                  <span>{showOptional ? 'Hide optional details' : 'Add optional details (helps us prepare your territory)'}</span>
+                  <span className="ml-2">{showOptional ? '▲' : '▼'}</span>
+                </button>
 
-              <div>
-                <label className="block text-xs text-muted uppercase tracking-wide font-medium mb-2">
-                  How do you get leads today?
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {LEAD_SOURCES.map(src => (
-                    <button
-                      key={src} type="button" onClick={() => toggleLeadSource(src)}
-                      className={[
-                        'px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-200',
-                        form.leadSources.includes(src)
-                          ? 'bg-accent/15 border-accent/40 text-accent'
-                          : 'bg-bg border-subtle text-muted hover:border-white/20 hover:text-white',
-                      ].join(' ')}
-                      style={form.leadSources.includes(src)
-                        ? { boxShadow: '0 0 12px rgba(0,229,160,0.12)' }
-                        : {}}
-                    >
-                      {src}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                {showOptional && (
+                  <div className="mt-3 space-y-4 pt-3 border-t border-subtle/50">
+                    <div>
+                      <label className="block text-xs text-muted uppercase tracking-wide font-medium mb-1.5">
+                        Monthly revenue range
+                      </label>
+                      <select
+                        className={`${inputClass} appearance-none cursor-pointer`}
+                        value={form.monthlyRevenue}
+                        onChange={e => setForm(p => ({ ...p, monthlyRevenue: e.target.value }))}
+                      >
+                        <option value="">Select range</option>
+                        {MONTHLY_REVENUE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </div>
 
-              <div>
-                <label className="block text-xs text-muted uppercase tracking-wide font-medium mb-1.5">
-                  Monthly lead spend
-                </label>
-                <select
-                  className={`${inputClass} appearance-none cursor-pointer`}
-                  value={form.monthlyLeadSpend}
-                  onChange={e => setForm(p => ({ ...p, monthlyLeadSpend: e.target.value }))}
-                >
-                  <option value="">Select range (optional)</option>
-                  {MONTHLY_SPEND_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
+                    <div>
+                      <label className="block text-xs text-muted uppercase tracking-wide font-medium mb-2">
+                        How do you get leads today?
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {LEAD_SOURCES.map(src => (
+                          <button
+                            key={src} type="button" onClick={() => toggleLeadSource(src)}
+                            className={[
+                              'px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-200',
+                              form.leadSources.includes(src)
+                                ? 'bg-accent/15 border-accent/40 text-accent'
+                                : 'bg-bg border-subtle text-muted hover:border-white/20 hover:text-white',
+                            ].join(' ')}
+                            style={form.leadSources.includes(src)
+                              ? { boxShadow: '0 0 12px rgba(0,229,160,0.12)' }
+                              : {}}
+                          >
+                            {src}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-muted uppercase tracking-wide font-medium mb-1.5">
+                        Monthly lead spend
+                      </label>
+                      <select
+                        className={`${inputClass} appearance-none cursor-pointer`}
+                        value={form.monthlyLeadSpend}
+                        onChange={e => setForm(p => ({ ...p, monthlyLeadSpend: e.target.value }))}
+                      >
+                        <option value="">Select range</option>
+                        {MONTHLY_SPEND_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="pt-3">
