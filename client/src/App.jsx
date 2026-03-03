@@ -13,6 +13,7 @@ import Bundle from './pages/Bundle.jsx';
 import Webinar from './pages/Webinar.jsx';
 import Pipeline from './pages/Pipeline.jsx';
 import Privacy from './pages/Privacy.jsx';
+import Quote from './pages/Quote.jsx';
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { isAuthenticated, user } = useAuth();
@@ -84,6 +85,7 @@ function AppRoutes() {
         }
       />
       <Route path="/privacy" element={<Privacy />} />
+      <Route path="/quote" element={<Quote />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

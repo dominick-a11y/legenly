@@ -59,6 +59,41 @@ router.post('/public', async (req, res) => {
   res.status(201).json({ success: true, id: newLead.id });
 });
 
+// ─── PUBLIC: POST /api/leads/enrich — homeowner adds job details after Meta redirect ─
+// Matches by phone number and updates jobType / description on the most recent lead.
+router.post('/enrich', (req, res) => {
+  const { phone, jobType, description } = req.body || {};
+
+  if (!phone) return res.status(400).json({ error: 'phone is required' });
+
+  // Normalize to digits only for matching
+  const digits = phone.replace(/\D/g, '').slice(-10);
+  if (digits.length < 7) return res.status(400).json({ error: 'Invalid phone number' });
+
+  // Find the most recent lead whose phone ends with the same 10 digits
+  const leads = db.prepare('SELECT * FROM leads ORDER BY createdAt DESC LIMIT 50').all();
+  const match = leads.find(l => l.phone && l.phone.replace(/\D/g, '').slice(-10) === digits);
+
+  if (!match) {
+    // No match — still return 200 so the UI doesn't show an error to the customer
+    console.log(`[Enrich] No lead found for phone digits: ${digits}`);
+    return res.json({ success: true, matched: false });
+  }
+
+  const updates = [];
+  const params = [];
+  if (jobType)     { updates.push('jobType = ?');     params.push(jobType); }
+  if (description) { updates.push('description = ?'); params.push(description); }
+
+  if (updates.length > 0) {
+    params.push(match.id);
+    db.prepare(`UPDATE leads SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+    console.log(`[Enrich] Updated lead #${match.id} (${match.name}) with jobType=${jobType}, description set=${!!description}`);
+  }
+
+  res.json({ success: true, matched: true });
+});
+
 // GET /api/leads — returns leads for the authenticated subscriber's market
 router.get('/', requireAuth, (req, res) => {
   const { market, role } = req.user;
