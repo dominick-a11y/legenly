@@ -139,14 +139,14 @@ function StatCard({ value, suffix = '', prefix = '', label }) {
   return (
     <div ref={ref} className="text-center">
       <div
-        className="font-heading font-black text-3xl md:text-4xl leading-none"
-        style={{ fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}
+        className="font-heading font-bold text-3xl md:text-[2.75rem] leading-none"
+        style={{ fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.03em' }}
       >
         <span className="text-accent">{prefix}</span>
         <span className="text-white">{count.toLocaleString()}</span>
         <span className="text-accent">{suffix}</span>
       </div>
-      <p className="text-xs text-muted mt-2.5 leading-snug">{label}</p>
+      <p className="text-xs text-white/35 mt-3 leading-snug font-normal">{label}</p>
     </div>
   );
 }
@@ -394,8 +394,8 @@ function ScarcityBanner({ slotsLeft }) {
         </p>
       </div>
       <div className="relative shrink-0 text-right">
-        <p className="text-3xl font-heading font-black text-amber-400">{slotsLeft}</p>
-        <p className="text-[10px] text-amber-400/60 uppercase tracking-wide">slots left</p>
+        <p className="text-3xl font-heading font-bold text-amber-400" style={{ letterSpacing: '-0.03em' }}>{slotsLeft}</p>
+        <p className="text-[10px] text-amber-400/50 uppercase tracking-widest font-medium mt-0.5">slots left</p>
       </div>
     </div>
   );
@@ -417,15 +417,15 @@ function RoiCalc() {
   return (
     <div
       className="bg-surface border border-subtle rounded-2xl p-6 md:p-8 relative overflow-hidden"
-      style={{ boxShadow: '0 0 60px rgba(0,229,160,0.07), 0 4px 40px rgba(0,0,0,0.5)' }}
+      style={{  }}
     >
       <div
         aria-hidden
         className="absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl pointer-events-none"
         style={{ background: 'radial-gradient(circle, rgba(0,229,160,0.12) 0%, transparent 70%)' }}
       />
-      <h3 className="font-heading text-xl font-bold text-white mb-1 relative">Your ROI Calculator</h3>
-      <p className="text-muted text-sm mb-6 relative">Drag the sliders — see the math live.</p>
+      <h3 className="font-heading text-xl font-semibold text-white mb-1 relative" style={{ letterSpacing: '-0.02em' }}>Your ROI Calculator</h3>
+      <p className="text-white/35 text-sm mb-6 relative">Drag the sliders. See the math live.</p>
 
       <div className="space-y-6 relative">
         {[
@@ -475,11 +475,11 @@ function RoiCalc() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[10px] text-accent/70 uppercase tracking-widest font-semibold">Net profit this month</p>
-            <p className="text-3xl font-heading font-bold text-accent mt-0.5">${net.toLocaleString()}</p>
+            <p className="text-3xl font-heading font-semibold text-accent mt-0.5">${net.toLocaleString()}</p>
           </div>
           <div className="text-right shrink-0">
             <p className="text-[10px] text-accent/70 uppercase tracking-widest font-semibold">ROI multiple</p>
-            <p className="text-3xl font-heading font-bold text-accent mt-0.5">{roi.toFixed(1)}×</p>
+            <p className="text-3xl font-heading font-semibold text-accent mt-0.5">{roi.toFixed(1)}×</p>
           </div>
         </div>
         <p className="text-xs text-accent/60 mt-3 leading-relaxed">
@@ -576,7 +576,7 @@ function SocialProof() {
               style={{ background: 'rgba(0,229,160,0.1)', border: '1px solid rgba(0,229,160,0.2)' }}
             >
               <p className="text-[10px] text-accent/60 uppercase tracking-wide">Week 1 revenue</p>
-              <p className="text-accent font-heading font-extrabold text-lg leading-tight">{p.rev}</p>
+              <p className="text-accent font-heading font-semibold text-lg leading-tight" style={{ letterSpacing: '-0.02em' }}>{p.rev}</p>
             </div>
           </div>
         </div>
@@ -659,7 +659,7 @@ export default function Waitlist() {
         />
         <nav className="border-b border-subtle bg-surface/70 backdrop-blur-md sticky top-0 z-50">
           <div className="max-w-6xl mx-auto px-4 md:px-8 h-14 flex items-center justify-between">
-            <a href="/" className="font-heading font-extrabold text-xl tracking-tight">
+            <a href="/" className="font-heading font-semibold text-xl">
               <span className="text-white">Legen</span><span className="text-accent">ly</span>
             </a>
             <a href="/" className="text-sm text-muted hover:text-white transition-colors">Login →</a>
@@ -674,7 +674,7 @@ export default function Waitlist() {
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
-          <h1 className="font-heading text-4xl font-extrabold text-white mb-3">You're on the list.</h1>
+          <h1 className="font-heading text-4xl font-bold text-white mb-3" style={{ letterSpacing: '-0.03em' }}>You're on the list.</h1>
           <p className="text-muted text-lg mb-2">
             We'll reach out within <span className="text-white font-semibold">24–48 hours</span> to discuss your{' '}
             <span className="text-accent font-semibold">{form.city}</span> territory.
@@ -740,17 +740,17 @@ export default function Waitlist() {
     <div className="min-h-screen bg-bg relative overflow-x-hidden">
       <GridBg />
 
-      {/* Top hero glow */}
+      {/* Top hero glow — single, subtle */}
       <div
         aria-hidden
-        className="fixed top-0 left-1/2 -translate-x-1/2 w-[900px] h-[500px] pointer-events-none z-0"
-        style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(0,229,160,0.11) 0%, transparent 65%)' }}
+        className="fixed top-0 left-1/2 -translate-x-1/2 w-[700px] h-[380px] pointer-events-none z-0"
+        style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(0,229,160,0.07) 0%, transparent 70%)' }}
       />
 
       {/* ── Nav ─────────────────────────────────────────────────────────────── */}
       <nav className="border-b border-subtle bg-surface/70 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 md:px-8 h-14 flex items-center justify-between">
-          <a href="/" className="font-heading font-extrabold text-xl tracking-tight">
+          <a href="/" className="font-heading font-semibold text-xl">
             <span className="text-white">Legen</span><span className="text-accent">ly</span>
           </a>
           <div className="flex items-center gap-5">
@@ -769,71 +769,55 @@ export default function Waitlist() {
 
       {/* ── Hero ─────────────────────────────────────────────────────────────── */}
       <section ref={heroRef} className="relative z-10 pt-16 pb-10 px-4 text-center max-w-4xl mx-auto">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-semibold mb-10">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full mb-10" style={{ background: 'rgba(0,229,160,0.06)', border: '1px solid rgba(0,229,160,0.15)' }}>
           <span className="w-1.5 h-1.5 rounded-full bg-accent pulse-dot" />
-          {slotsLeft} founding slots remaining — launching April 7
+          <span className="text-accent/80 text-xs font-medium tracking-wide">{slotsLeft} founding slots · Launching April 7</span>
         </div>
 
         <h1
-          className="font-heading font-black text-5xl md:text-6xl lg:text-[5rem] mb-8"
-          style={{ letterSpacing: '-0.015em', lineHeight: '1.12' }}
+          className="font-heading font-bold mb-7"
+          style={{ fontSize: 'clamp(2.8rem, 7vw, 5.5rem)', letterSpacing: '-0.03em', lineHeight: 1.08 }}
         >
-          <span className="block text-white">The Exclusive Lead</span>
-          <span className="block text-white">Platform for Junk</span>
-          <span
-            className="block mt-1"
-            style={{
-              background: 'linear-gradient(120deg, #00e5a0 0%, #00c487 40%, #00e5a0 80%)',
-              backgroundSize: '200% 200%',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              animation: 'gradient-shift 5s ease infinite',
-            }}
-          >
-            Removal Operators.
-          </span>
+          <span className="text-white">Exclusive junk removal leads.</span>
+          <br />
+          <span style={{ color: '#00e5a0' }}>One operator per city.</span>
         </h1>
 
-        <p className="text-white/60 text-xl max-w-2xl mx-auto mb-6 leading-relaxed">
-          We run Facebook ads in your city, capture the leads, and route every single one{' '}
-          <span className="text-white font-semibold">exclusively to you</span>.
-          One operator per market. No bidding. No competition. Just jobs.
+        <p className="text-white/50 text-lg md:text-xl max-w-xl mx-auto mb-10 leading-relaxed" style={{ fontWeight: 400 }}>
+          We run ads in your market and send every lead directly to you —
+          no bidding, no shared access, no per-lead fees.
         </p>
 
-        <p className="text-white/40 text-sm max-w-lg mx-auto mb-10 leading-relaxed">
-          Junk King franchises cost up to $487K to get an exclusive territory.
-          Legenly does the same thing for <span className="text-accent font-semibold">$500/month</span> — and you can cancel anytime.
-        </p>
-
-        <div className="flex flex-wrap items-center justify-center gap-4 mb-10">
+        <div className="flex flex-wrap items-center justify-center gap-3 mb-12">
           <button
             onClick={scrollToForm}
-            className="relative px-9 py-4 bg-accent text-bg font-heading font-bold text-base rounded-xl transition-all hover:bg-accent-dim active:scale-95"
-            style={{ boxShadow: '0 0 28px rgba(0,229,160,0.3), 0 4px 16px rgba(0,0,0,0.3)' }}
-            onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 0 48px rgba(0,229,160,0.45), 0 4px 20px rgba(0,0,0,0.4)'; }}
-            onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 0 28px rgba(0,229,160,0.3), 0 4px 16px rgba(0,0,0,0.3)'; }}
+            className="px-8 py-3.5 bg-accent text-bg font-semibold text-sm rounded-xl transition-all hover:bg-accent-dim active:scale-[0.98]"
+            style={{ letterSpacing: '-0.01em' }}
           >
-            Claim Your City →
+            Claim your city →
           </button>
           <button
             onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}
-            className="px-8 py-4 border border-subtle text-muted hover:text-white hover:border-white/20 rounded-xl text-sm font-medium transition-all"
+            className="px-8 py-3.5 border border-white/10 text-white/50 hover:text-white hover:border-white/25 rounded-xl text-sm font-medium transition-all"
           >
-            See how it works ↓
+            See how it works
           </button>
         </div>
 
-        {/* Proof pills */}
-        <div className="flex flex-wrap justify-center gap-6 text-sm text-muted">
+        {/* Proof strip */}
+        <div className="flex flex-wrap justify-center gap-x-8 gap-y-3 text-sm text-white/35">
           {[
-            { icon: '🔒', text: 'One operator per city' },
-            { icon: '⚡', text: 'Leads hit your phone instantly' },
-            { icon: '💰', text: '$500/mo flat — no per-lead fees' },
-            { icon: '✅', text: 'Cancel anytime' },
-          ].map(({ icon, text }) => (
-            <span key={text} className="flex items-center gap-1.5">
-              {icon} {text}
+            'One operator per city',
+            'Leads delivered in real time',
+            '$500/mo flat rate',
+            'Cancel anytime',
+          ].map((text) => (
+            <span key={text} className="flex items-center gap-2">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <circle cx="6" cy="6" r="5.5" stroke="#00e5a0" strokeOpacity="0.5"/>
+                <path d="M3.5 6l1.8 1.8L8.5 4.5" stroke="#00e5a0" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              {text}
             </span>
           ))}
         </div>
@@ -861,7 +845,7 @@ export default function Waitlist() {
         <Reveal>
           <div className="text-center mb-8">
             <p className="text-accent text-xs uppercase tracking-widest font-semibold mb-2">Territories</p>
-            <h2 className="font-heading text-2xl md:text-3xl font-black text-white" style={{ letterSpacing: '-0.02em' }}>
+            <h2 className="font-heading text-2xl md:text-3xl font-bold text-white" style={{ letterSpacing: '-0.025em' }}>
               Your market might already be claimed.
             </h2>
             <p className="text-muted text-sm mt-2 max-w-md mx-auto">
@@ -888,7 +872,7 @@ export default function Waitlist() {
         <Reveal>
           <div className="text-center mb-10">
             <p className="text-accent text-xs uppercase tracking-widest font-semibold mb-2">How it works</p>
-            <h2 className="font-heading text-2xl md:text-3xl font-black text-white" style={{ letterSpacing: '-0.02em' }}>
+            <h2 className="font-heading text-2xl md:text-3xl font-bold text-white" style={{ letterSpacing: '-0.025em' }}>
               Three steps to owning your market
             </h2>
           </div>
@@ -918,21 +902,12 @@ export default function Waitlist() {
             <Reveal key={item.step} delay={i * 80}>
               <TiltCard>
                 <div
-                  className="bg-surface border border-subtle rounded-2xl p-7 h-full relative overflow-hidden group hover:border-accent/25 transition-colors duration-300"
-                  style={{ boxShadow: '0 4px 32px rgba(0,0,0,0.45)' }}
+                  className="bg-surface border border-subtle rounded-2xl p-7 h-full relative overflow-hidden group hover:border-white/15 transition-colors duration-300"
+                  style={{}}
                 >
-                  <div
-                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-                    style={{ background: 'radial-gradient(ellipse at 30% 30%, rgba(0,229,160,0.04) 0%, transparent 60%)' }}
-                  />
-                  <span
-                    className="absolute top-5 right-5 font-heading font-extrabold text-6xl leading-none text-white/[0.04] group-hover:text-white/[0.08] transition-colors duration-300 select-none"
-                  >
-                    {item.step}
-                  </span>
-                  <div className="text-3xl mb-5 relative">{item.icon}</div>
-                  <h3 className="font-heading font-bold text-white text-lg mb-2 relative">{item.title}</h3>
-                  <p className="text-muted text-sm leading-relaxed relative">{item.desc}</p>
+                  <p className="text-xs text-accent/60 font-medium tracking-widest uppercase mb-5">{item.step}</p>
+                  <h3 className="font-heading font-semibold text-white text-lg mb-2" style={{ letterSpacing: '-0.02em' }}>{item.title}</h3>
+                  <p className="text-white/40 text-sm leading-relaxed">{item.desc}</p>
                 </div>
               </TiltCard>
             </Reveal>
@@ -945,7 +920,7 @@ export default function Waitlist() {
         <Reveal>
           <div className="text-center mb-8">
             <p className="text-accent text-xs uppercase tracking-widest font-semibold mb-2">From the field</p>
-            <h2 className="font-heading text-2xl md:text-3xl font-black text-white" style={{ letterSpacing: '-0.02em' }}>
+            <h2 className="font-heading text-2xl md:text-3xl font-bold text-white" style={{ letterSpacing: '-0.025em' }}>
               Real results, real operators
             </h2>
           </div>
@@ -960,7 +935,7 @@ export default function Waitlist() {
         <Reveal>
           <div
             className="rounded-2xl border border-subtle p-8 md:p-12 relative overflow-hidden"
-            style={{ background: 'linear-gradient(145deg, rgba(0,229,160,0.05) 0%, transparent 55%)', boxShadow: '0 4px 48px rgba(0,0,0,0.5)' }}
+            style={{ background: 'rgba(255,255,255,0.02)' }}
           >
             <div
               aria-hidden
@@ -982,7 +957,7 @@ export default function Waitlist() {
         <Reveal>
           <div className="text-center mb-10">
             <p className="text-accent text-xs uppercase tracking-widest font-semibold mb-2">The math</p>
-            <h2 className="font-heading text-2xl md:text-3xl font-black text-white" style={{ letterSpacing: '-0.02em' }}>
+            <h2 className="font-heading text-2xl md:text-3xl font-bold text-white" style={{ letterSpacing: '-0.025em' }}>
               Run the numbers yourself
             </h2>
             <p className="text-muted mt-2 max-w-md mx-auto text-sm">
@@ -997,7 +972,7 @@ export default function Waitlist() {
               {/* Franchise comparison */}
               <div
                 className="bg-surface border border-subtle rounded-2xl p-6 relative overflow-hidden"
-                style={{ boxShadow: '0 4px 28px rgba(0,0,0,0.45)' }}
+                style={{}}
               >
                 <div
                   aria-hidden
@@ -1020,7 +995,7 @@ export default function Waitlist() {
                   ))}
                   <div className="border-t border-subtle/60 pt-3.5 flex justify-between items-center">
                     <span className="text-sm font-bold text-white">Legenly exclusive territory</span>
-                    <span className="text-base font-extrabold text-accent">$500/mo</span>
+                    <span className="text-base font-semibold text-accent">$500/mo</span>
                   </div>
                 </div>
                 <p className="text-xs text-muted leading-relaxed mt-4 pt-4 border-t border-subtle/40 relative">
@@ -1031,7 +1006,7 @@ export default function Waitlist() {
               {/* Close rate bars */}
               <div
                 className="bg-surface border border-subtle rounded-2xl p-6"
-                style={{ boxShadow: '0 4px 28px rgba(0,0,0,0.45)' }}
+                style={{}}
               >
                 <p className="text-xs text-muted uppercase tracking-widest font-semibold mb-5">
                   Why exclusive leads close better
@@ -1069,7 +1044,7 @@ export default function Waitlist() {
       {/* ── Comparison table ──────────────────────────────────────────────────── */}
       <section className="relative z-10 max-w-5xl mx-auto px-4 md:px-8 mb-16">
         <Reveal>
-          <h2 className="font-heading text-2xl md:text-3xl font-black text-white mb-6 text-center" style={{ letterSpacing: '-0.02em' }}>
+          <h2 className="font-heading text-2xl md:text-3xl font-semibold text-white mb-6 text-center" style={{ letterSpacing: '-0.025em' }}>
             How we stack up
           </h2>
           <div
@@ -1097,7 +1072,7 @@ export default function Waitlist() {
               style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(0,229,160,0.08) 0%, transparent 60%)' }}
             />
             <p className="text-accent text-xs uppercase tracking-widest font-semibold mb-3 relative">Last call</p>
-            <h2 className="font-heading text-2xl md:text-3xl font-black text-white mb-3 relative" style={{ letterSpacing: '-0.02em' }}>
+            <h2 className="font-heading text-2xl md:text-3xl font-semibold text-white mb-3 relative" style={{ letterSpacing: '-0.025em' }}>
               Your city is open.<br />
               <span className="text-accent">It won't be for long.</span>
             </h2>
@@ -1112,8 +1087,8 @@ export default function Waitlist() {
                 { val: 'Apr 7', label: 'launch date' },
               ].map(({ val, label }) => (
                 <div key={label} className="text-center">
-                  <p className="text-2xl font-heading font-black text-white">{val}</p>
-                  <p className="text-[10px] text-muted uppercase tracking-wide mt-0.5">{label}</p>
+                  <p className="text-2xl font-heading font-semibold text-white" style={{ letterSpacing: '-0.02em' }}>{val}</p>
+                  <p className="text-[10px] text-white/35 uppercase tracking-widest mt-1 font-medium">{label}</p>
                 </div>
               ))}
             </div>
@@ -1175,11 +1150,11 @@ export default function Waitlist() {
                 <span className="w-1.5 h-1.5 rounded-full bg-accent pulse-dot" />
                 {slotsLeft} founding slots remaining
               </div>
-              <h2 className="font-heading text-2xl md:text-3xl font-extrabold text-white mb-2">
+              <h2 className="font-heading text-2xl md:text-3xl font-semibold text-white mb-2" style={{ letterSpacing: '-0.025em' }}>
                 Secure your territory
               </h2>
-              <p className="text-muted text-sm">
-                No payment today. We'll call you personally when your city is ready to launch.
+              <p className="text-white/40 text-sm">
+                No payment today. We'll reach out personally to confirm your city.
               </p>
             </div>
 
