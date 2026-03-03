@@ -1,11 +1,27 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-const JOB_TYPES = ['Garage', 'Estate', 'Appliance', 'Yard', 'Commercial', 'Other'];
+const STEPS = 3;
+
+const JOB_TYPES = [
+  { label: 'Garage Cleanout', icon: '🏠' },
+  { label: 'Estate Cleanout', icon: '🏡' },
+  { label: 'Appliances', icon: '🧊' },
+  { label: 'Yard Debris', icon: '🌿' },
+  { label: 'Furniture', icon: '🛋️' },
+  { label: 'Other', icon: '📦' },
+];
+
+const SIZES = [
+  { label: 'Small load', sub: 'Truck bed or less' },
+  { label: 'Medium load', sub: '1–2 rooms of stuff' },
+  { label: 'Large load', sub: 'Full truckload+' },
+];
 
 export default function Landing() {
+  const [step, setStep] = useState(1);
   const [form, setForm] = useState({
-    name: '', phone: '', city: '', state: 'GA', jobType: '', description: ''
+    jobType: '', size: '', city: '', state: 'GA', name: '', phone: '', email: ''
   });
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
@@ -15,19 +31,33 @@ export default function Landing() {
     setForm(prev => ({ ...prev, [field]: value }));
   }
 
+  function next() {
+    setError('');
+    if (step === 2 && !form.city.trim()) {
+      setError('Please enter your city.');
+      return;
+    }
+    setStep(s => s + 1);
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-
-    if (!form.name.trim() || !form.phone.trim() || !form.city.trim()) {
-      setError('Name, phone, and city are required.');
+    if (!form.name.trim() || !form.phone.trim()) {
+      setError('Name and phone number are required.');
       return;
     }
-
     setLoading(true);
     try {
-      await axios.post('/api/leads/public', form);
-      // Fire pixel Lead event on successful submission
+      await axios.post('/api/leads/public', {
+        name: form.name,
+        phone: form.phone,
+        email: form.email,
+        city: form.city || 'Unknown',
+        state: form.state,
+        jobType: form.jobType,
+        description: form.size,
+      });
       if (typeof window !== 'undefined' && window.fbq) {
         window.fbq('track', 'Lead');
       }
@@ -39,147 +69,209 @@ export default function Landing() {
     }
   }
 
+  const progress = submitted ? 100 : ((step - 1) / STEPS) * 100;
+
   return (
     <div style={s.page}>
-      {/* NAV */}
-      <nav style={s.nav}>
-        <div style={s.navLogo}>LEGENLY</div>
-        <a href="/login" style={s.navLink}>Operator Login →</a>
-      </nav>
+      <div style={s.card}>
 
-      <div style={s.main}>
-        {/* LEFT — COPY */}
-        <div style={s.left}>
-          <div style={s.badge}>🤝 Proud partner with Dumpire · Forsyth County, GA</div>
+        {/* Logo */}
+        <div style={s.logoRow}>
+          <span style={s.logo}>LEGENLY</span>
+        </div>
 
-          <h1 style={s.headline}>
-            Get Your Junk Gone <span style={s.accent}>This Week</span>
-          </h1>
-
-          <p style={s.sub}>
-            We connect Georgia homeowners with local, vetted junk removal operators.
-            Fill out the form and a pro will call you within the hour — no call centers, no runaround.
-          </p>
-
-          <div style={s.trustList}>
-            {['Local operator calls you — not a call center', 'Free estimate, zero obligation', 'Same-week availability in most areas'].map(t => (
-              <div key={t} style={s.trustItem}>
-                <span style={s.check}>✓</span>
-                <span>{t}</span>
-              </div>
-            ))}
+        {/* Progress bar */}
+        {!submitted && (
+          <div style={s.progressTrack}>
+            <div style={{ ...s.progressFill, width: `${progress}%` }} />
           </div>
+        )}
 
-          <div style={s.markets}>
-            <div style={s.marketsLabel}>Currently serving:</div>
-            <div style={s.marketTags}>
-              {['Cumming', 'Alpharetta', 'Johns Creek', 'Suwanee', 'Dawsonville', 'Ball Ground'].map(city => (
-                <span key={city} style={s.tag}>{city}, GA</span>
+        {/* ── STEP 1: Job type ── */}
+        {!submitted && step === 1 && (
+          <div style={s.stepWrap}>
+            <p style={s.stepLabel}>Step 1 of 3</p>
+            <h1 style={s.heading}>What do you need removed?</h1>
+            <p style={s.sub}>Select all that apply — no obligation to book.</p>
+            <div style={s.jobGrid}>
+              {JOB_TYPES.map(({ label, icon }) => (
+                <button
+                  key={label}
+                  type="button"
+                  style={{ ...s.jobBtn, ...(form.jobType === label ? s.jobBtnActive : {}) }}
+                  onClick={() => set('jobType', label)}
+                >
+                  <span style={s.jobIcon}>{icon}</span>
+                  <span style={s.jobLabel}>{label}</span>
+                </button>
               ))}
             </div>
+            <button
+              style={{ ...s.cta, ...(form.jobType ? {} : s.ctaDisabled) }}
+              disabled={!form.jobType}
+              onClick={next}
+            >
+              Continue →
+            </button>
+            <p style={s.skip} onClick={() => { set('jobType', 'Other'); next(); }}>Skip this step</p>
           </div>
-        </div>
+        )}
 
-        {/* RIGHT — FORM */}
-        <div style={s.right}>
-          {submitted ? (
-            <div style={s.card}>
-              <div style={s.successIcon}>✓</div>
-              <h2 style={s.successTitle}>You're all set!</h2>
-              <p style={s.successText}>
-                A local junk removal operator will call you within the hour.
-              </p>
-              <p style={s.successSub}>Free estimate · No obligation</p>
+        {/* ── STEP 2: Location + size ── */}
+        {!submitted && step === 2 && (
+          <div style={s.stepWrap}>
+            <p style={s.stepLabel}>Step 2 of 3</p>
+            <h1 style={s.heading}>Where are you located?</h1>
+            <p style={s.sub}>We'll match you with a local operator who can help fast.</p>
+
+            <div style={s.field}>
+              <label style={s.label}>Your city *</label>
+              <input
+                style={s.input}
+                type="text"
+                placeholder="Cumming"
+                autoFocus
+                value={form.city}
+                onChange={e => set('city', e.target.value)}
+              />
             </div>
-          ) : (
-            <div style={s.card}>
-              <h2 style={s.formTitle}>Get a Free Quote</h2>
-              <p style={s.formSub}>Takes 30 seconds. A local pro calls you fast.</p>
 
-              <form onSubmit={handleSubmit} style={s.form}>
-                <div style={s.field}>
-                  <label style={s.label}>Your Name *</label>
-                  <input
-                    style={s.input}
-                    type="text"
-                    placeholder="Jane Smith"
-                    value={form.name}
-                    onChange={e => set('name', e.target.value)}
-                  />
+            <div style={s.field}>
+              <label style={s.label}>How much stuff?</label>
+              <div style={s.sizeGrid}>
+                {SIZES.map(({ label, sub }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    style={{ ...s.sizeBtn, ...(form.size === label ? s.sizeBtnActive : {}) }}
+                    onClick={() => set('size', label)}
+                  >
+                    <span style={s.sizeName}>{label}</span>
+                    <span style={s.sizeSub}>{sub}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {error && <div style={s.error}>{error}</div>}
+
+            <button style={s.cta} onClick={next}>
+              Continue →
+            </button>
+            <p style={s.back} onClick={() => setStep(1)}>← Back</p>
+          </div>
+        )}
+
+        {/* ── STEP 3: Contact info ── */}
+        {!submitted && step === 3 && (
+          <div style={s.stepWrap}>
+            <p style={s.stepLabel}>Step 3 of 3</p>
+            <h1 style={s.heading}>How should we reach you?</h1>
+            <p style={s.sub}>A local operator will call you — usually within the hour.</p>
+
+            <form onSubmit={handleSubmit} style={s.form}>
+              <div style={s.field}>
+                <label style={s.label}>Your name *</label>
+                <input
+                  style={s.input}
+                  type="text"
+                  placeholder="Jane Smith"
+                  autoFocus
+                  value={form.name}
+                  onChange={e => set('name', e.target.value)}
+                />
+              </div>
+              <div style={s.field}>
+                <label style={s.label}>Phone number *</label>
+                <input
+                  style={s.input}
+                  type="tel"
+                  placeholder="(770) 555-0100"
+                  value={form.phone}
+                  onChange={e => set('phone', e.target.value)}
+                />
+              </div>
+              <div style={s.field}>
+                <label style={s.label}>Email (optional)</label>
+                <input
+                  style={s.input}
+                  type="email"
+                  placeholder="jane@email.com"
+                  value={form.email}
+                  onChange={e => set('email', e.target.value)}
+                />
+              </div>
+
+              {error && <div style={s.error}>{error}</div>}
+
+              <button
+                type="submit"
+                disabled={loading}
+                style={{ ...s.cta, ...(loading ? s.ctaDisabled : {}) }}
+              >
+                {loading ? 'Sending…' : 'Get My Free Quote →'}
+              </button>
+            </form>
+
+            <p style={s.disclaimer}>
+              No spam. No obligation. A local operator calls you — not a call center.
+            </p>
+            <p style={s.back} onClick={() => setStep(2)}>← Back</p>
+          </div>
+        )}
+
+        {/* ── SUCCESS ── */}
+        {submitted && (
+          <div style={s.stepWrap}>
+            <div style={s.successIcon}>✓</div>
+            <h1 style={s.heading}>You're all set, {form.name.split(' ')[0]}!</h1>
+            <p style={s.sub}>
+              A local operator will call you at <strong>{form.phone}</strong> — usually within the hour.
+            </p>
+
+            {/* Extended content — keeps user on page, feeds pixel more data */}
+            <div style={s.extendedWrap}>
+              <div style={s.extCard}>
+                <span style={s.extIcon}>⚡</span>
+                <div>
+                  <div style={s.extTitle}>Same-week availability</div>
+                  <div style={s.extText}>Most jobs scheduled within 24–48 hours of your call.</div>
                 </div>
-
-                <div style={s.field}>
-                  <label style={s.label}>Phone Number *</label>
-                  <input
-                    style={s.input}
-                    type="tel"
-                    placeholder="(770) 555-0100"
-                    value={form.phone}
-                    onChange={e => set('phone', e.target.value)}
-                  />
-                </div>
-
-                <div style={s.field}>
-                  <label style={s.label}>City *</label>
-                  <input
-                    style={s.input}
-                    type="text"
-                    placeholder="Cumming"
-                    value={form.city}
-                    onChange={e => set('city', e.target.value)}
-                  />
-                </div>
-
-                <div style={s.field}>
-                  <label style={s.label}>What needs to go?</label>
-                  <div style={s.jobGrid}>
-                    {JOB_TYPES.map(type => (
-                      <button
-                        key={type}
-                        type="button"
-                        style={{ ...s.jobBtn, ...(form.jobType === type ? s.jobBtnActive : {}) }}
-                        onClick={() => set('jobType', type)}
-                      >
-                        {type}
-                      </button>
-                    ))}
+              </div>
+              <div style={s.extCard}>
+                <span style={s.extIcon}>📍</span>
+                <div>
+                  <div style={s.extTitle}>Local, not a franchise</div>
+                  <div style={s.extText}>
+                    We work exclusively with owner-operated junk removal companies in your area.
+                    {form.city ? ` Serving ${form.city} and surrounding communities.` : ''}
                   </div>
                 </div>
-
-                <div style={s.field}>
-                  <label style={s.label}>Anything else? (optional)</label>
-                  <textarea
-                    style={{ ...s.input, ...s.textarea }}
-                    placeholder="Old couch, appliances, full garage cleanout…"
-                    value={form.description}
-                    onChange={e => set('description', e.target.value)}
-                    rows={3}
-                  />
+              </div>
+              <div style={s.extCard}>
+                <span style={s.extIcon}>🤝</span>
+                <div>
+                  <div style={s.extTitle}>Verified & insured</div>
+                  <div style={s.extText}>Every operator is vetted before joining the Legenly network.</div>
                 </div>
-
-                {error && <div style={s.error}>{error}</div>}
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  style={{ ...s.submitBtn, ...(loading ? s.submitDisabled : {}) }}
-                >
-                  {loading ? 'Sending…' : 'Get My Free Quote →'}
-                </button>
-
-                <p style={s.disclaimer}>
-                  No spam. No obligation. A local operator will call you — not a call center.
-                </p>
-              </form>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
 
-      <footer style={s.footer}>
-        <span>© {new Date().getFullYear()} Legenly · Lead Marketplace</span>
-        <a href="/login" style={s.footerLink}>Operator Login</a>
-      </footer>
+            <div style={s.partnerBadge}>
+              Powered by <strong>Dumpire</strong> in Forsyth County, GA
+            </div>
+          </div>
+        )}
+
+        {/* Bottom trust bar */}
+        {!submitted && (
+          <div style={s.trustBar}>
+            <span>✓ Free estimate</span>
+            <span>✓ No obligation</span>
+            <span>✓ Local operator</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -187,142 +279,95 @@ export default function Landing() {
 const s = {
   page: {
     minHeight: '100vh',
-    background: 'linear-gradient(145deg, #0a0f1e 0%, #0f172a 60%, #1a1035 100%)',
-    color: '#f8fafc',
+    background: 'linear-gradient(145deg, #0a0f1e 0%, #0f172a 70%, #12102b 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '24px 16px',
     fontFamily: "'DM Sans', 'Inter', -apple-system, sans-serif",
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  nav: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '20px 40px',
-    borderBottom: '1px solid rgba(255,255,255,0.06)',
-  },
-  navLogo: {
-    fontSize: '15px',
-    fontWeight: '800',
-    letterSpacing: '4px',
-    color: '#a78bfa',
-  },
-  navLink: {
-    color: '#94a3b8',
-    textDecoration: 'none',
-    fontSize: '14px',
-    fontWeight: '500',
-  },
-  main: {
-    flex: 1,
-    display: 'flex',
-    alignItems: 'center',
-    gap: '60px',
-    padding: '60px 40px',
-    maxWidth: '1100px',
-    margin: '0 auto',
-    width: '100%',
-    boxSizing: 'border-box',
-    flexWrap: 'wrap',
-  },
-  left: {
-    flex: '1 1 380px',
-    minWidth: '300px',
-  },
-  right: {
-    flex: '1 1 380px',
-    minWidth: '300px',
-  },
-  badge: {
-    display: 'inline-block',
-    background: 'rgba(167, 139, 250, 0.12)',
-    border: '1px solid rgba(167, 139, 250, 0.3)',
-    borderRadius: '999px',
-    padding: '6px 16px',
-    fontSize: '13px',
-    color: '#a78bfa',
-    marginBottom: '24px',
-    fontWeight: '500',
-  },
-  headline: {
-    fontSize: 'clamp(32px, 5vw, 52px)',
-    fontWeight: '800',
-    lineHeight: '1.15',
-    margin: '0 0 20px 0',
-    color: '#f1f5f9',
-  },
-  accent: {
-    color: '#a78bfa',
-  },
-  sub: {
-    fontSize: '17px',
-    color: '#94a3b8',
-    lineHeight: '1.7',
-    margin: '0 0 32px 0',
-  },
-  trustList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-    marginBottom: '36px',
-  },
-  trustItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    fontSize: '15px',
-    color: '#cbd5e1',
-  },
-  check: {
-    color: '#34d399',
-    fontWeight: '700',
-    fontSize: '16px',
-  },
-  markets: {
-    marginTop: '8px',
-  },
-  marketsLabel: {
-    fontSize: '12px',
-    fontWeight: '600',
-    color: '#64748b',
-    letterSpacing: '1px',
-    textTransform: 'uppercase',
-    marginBottom: '10px',
-  },
-  marketTags: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '8px',
-  },
-  tag: {
-    background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: '6px',
-    padding: '4px 10px',
-    fontSize: '13px',
-    color: '#94a3b8',
   },
   card: {
     background: '#fff',
     borderRadius: '20px',
-    padding: '36px',
-    boxShadow: '0 30px 80px rgba(0,0,0,0.5)',
-    color: '#0f172a',
+    width: '100%',
+    maxWidth: '480px',
+    boxShadow: '0 40px 100px rgba(0,0,0,0.5)',
+    overflow: 'hidden',
   },
-  formTitle: {
-    fontSize: '22px',
+  logoRow: {
+    padding: '20px 28px 0',
+  },
+  logo: {
+    fontSize: '11px',
     fontWeight: '800',
-    margin: '0 0 6px 0',
-    color: '#0f172a',
+    letterSpacing: '4px',
+    color: '#7c3aed',
   },
-  formSub: {
-    fontSize: '14px',
-    color: '#64748b',
-    margin: '0 0 24px 0',
+  progressTrack: {
+    height: '3px',
+    background: '#f1f5f9',
+    margin: '16px 0 0',
   },
-  form: {
+  progressFill: {
+    height: '100%',
+    background: 'linear-gradient(90deg, #7c3aed, #6366f1)',
+    transition: 'width 0.4s ease',
+    borderRadius: '0 2px 2px 0',
+  },
+  stepWrap: {
+    padding: '28px 28px 20px',
     display: 'flex',
     flexDirection: 'column',
     gap: '16px',
+  },
+  stepLabel: {
+    fontSize: '12px',
+    fontWeight: '600',
+    color: '#7c3aed',
+    letterSpacing: '0.5px',
+    margin: 0,
+    textTransform: 'uppercase',
+  },
+  heading: {
+    fontSize: '22px',
+    fontWeight: '800',
+    color: '#0f172a',
+    margin: 0,
+    lineHeight: '1.25',
+  },
+  sub: {
+    fontSize: '14px',
+    color: '#64748b',
+    margin: 0,
+    lineHeight: '1.6',
+  },
+  jobGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '10px',
+  },
+  jobBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '14px 16px',
+    border: '1.5px solid #e2e8f0',
+    borderRadius: '12px',
+    background: '#f8fafc',
+    cursor: 'pointer',
+    textAlign: 'left',
+  },
+  jobBtnActive: {
+    background: '#ede9fe',
+    borderColor: '#7c3aed',
+  },
+  jobIcon: {
+    fontSize: '20px',
+  },
+  jobLabel: {
+    fontSize: '13px',
+    fontWeight: '600',
+    color: '#0f172a',
   },
   field: {
     display: 'flex',
@@ -335,61 +380,77 @@ const s = {
     color: '#374151',
   },
   input: {
-    padding: '11px 14px',
+    padding: '12px 14px',
     border: '1.5px solid #e2e8f0',
     borderRadius: '10px',
     fontSize: '15px',
     color: '#0f172a',
     outline: 'none',
-    width: '100%',
-    boxSizing: 'border-box',
     background: '#f8fafc',
     fontFamily: 'inherit',
+    width: '100%',
+    boxSizing: 'border-box',
   },
-  textarea: {
-    resize: 'vertical',
-    minHeight: '80px',
-    lineHeight: '1.5',
-  },
-  jobGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
+  sizeGrid: {
+    display: 'flex',
+    flexDirection: 'column',
     gap: '8px',
   },
-  jobBtn: {
-    padding: '10px 8px',
+  sizeBtn: {
+    display: 'flex',
+    flexDirection: 'column',
+    padding: '12px 16px',
     border: '1.5px solid #e2e8f0',
-    borderRadius: '8px',
+    borderRadius: '10px',
     background: '#f8fafc',
     cursor: 'pointer',
-    fontSize: '13px',
-    fontWeight: '600',
-    color: '#475569',
+    textAlign: 'left',
   },
-  jobBtnActive: {
+  sizeBtnActive: {
     background: '#ede9fe',
     borderColor: '#7c3aed',
-    color: '#5b21b6',
   },
-  submitBtn: {
-    padding: '14px',
+  sizeName: {
+    fontSize: '14px',
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  sizeSub: {
+    fontSize: '12px',
+    color: '#64748b',
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '14px',
+  },
+  cta: {
+    padding: '15px',
     background: 'linear-gradient(135deg, #7c3aed, #6366f1)',
     color: '#fff',
     border: 'none',
-    borderRadius: '10px',
+    borderRadius: '12px',
     fontSize: '16px',
     fontWeight: '700',
     cursor: 'pointer',
-    marginTop: '4px',
+    width: '100%',
   },
-  submitDisabled: {
-    background: '#a5b4fc',
+  ctaDisabled: {
+    background: '#c4b5fd',
     cursor: 'not-allowed',
   },
-  disclaimer: {
+  skip: {
     textAlign: 'center',
-    fontSize: '12px',
+    fontSize: '13px',
     color: '#94a3b8',
+    cursor: 'pointer',
+    margin: '-4px 0 0',
+  },
+  back: {
+    textAlign: 'center',
+    fontSize: '13px',
+    color: '#94a3b8',
+    cursor: 'pointer',
     margin: 0,
   },
   error: {
@@ -398,8 +459,25 @@ const s = {
     borderRadius: '8px',
     padding: '10px 14px',
     color: '#dc2626',
-    fontSize: '14px',
+    fontSize: '13px',
   },
+  disclaimer: {
+    textAlign: 'center',
+    fontSize: '12px',
+    color: '#94a3b8',
+    margin: 0,
+    lineHeight: '1.5',
+  },
+  trustBar: {
+    display: 'flex',
+    justifyContent: 'space-around',
+    padding: '14px 20px',
+    borderTop: '1px solid #f1f5f9',
+    fontSize: '12px',
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  // Success
   successIcon: {
     width: '60px',
     height: '60px',
@@ -410,39 +488,42 @@ const s = {
     justifyContent: 'center',
     fontSize: '26px',
     color: '#10b981',
-    margin: '0 auto 20px',
+    margin: '0 auto',
   },
-  successTitle: {
-    fontSize: '22px',
-    fontWeight: '800',
-    color: '#0f172a',
-    textAlign: 'center',
-    margin: '0 0 12px 0',
-  },
-  successText: {
-    color: '#475569',
-    textAlign: 'center',
-    fontSize: '15px',
-    margin: '0 0 8px 0',
-    lineHeight: '1.6',
-  },
-  successSub: {
-    textAlign: 'center',
-    color: '#94a3b8',
-    fontSize: '13px',
-    margin: 0,
-  },
-  footer: {
+  extendedWrap: {
     display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '20px 40px',
-    borderTop: '1px solid rgba(255,255,255,0.06)',
-    fontSize: '13px',
-    color: '#475569',
+    flexDirection: 'column',
+    gap: '12px',
+    marginTop: '4px',
   },
-  footerLink: {
+  extCard: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '14px',
+    background: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '12px',
+    padding: '14px 16px',
+  },
+  extIcon: {
+    fontSize: '20px',
+    flexShrink: 0,
+  },
+  extTitle: {
+    fontSize: '14px',
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: '2px',
+  },
+  extText: {
+    fontSize: '13px',
     color: '#64748b',
-    textDecoration: 'none',
+    lineHeight: '1.5',
+  },
+  partnerBadge: {
+    textAlign: 'center',
+    fontSize: '12px',
+    color: '#94a3b8',
+    padding: '8px 0 4px',
   },
 };
