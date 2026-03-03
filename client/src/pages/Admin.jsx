@@ -11,7 +11,9 @@ const TABS = [
   { key: 'subscribers',    label: 'Subscribers',     icon: '👥' },
   { key: 'add-subscriber', label: 'Add Subscriber',  icon: '👤' },
   { key: 'markets',        label: 'Markets',         icon: '🗺️' },
-  { key: 'waitlist',       label: 'Waitlist',        icon: '📬' }
+  { key: 'waitlist',       label: 'Waitlist',        icon: '📬' },
+  { key: 'bundle',         label: 'Bundle Leads',    icon: '💼' },
+  { key: 'webinar',        label: 'Webinar Signups', icon: '🎓' },
 ];
 
 const JOB_TYPES = ['Garage', 'Estate', 'Appliance', 'Commercial'];
@@ -211,6 +213,129 @@ function MarketsTab({ markets, setMarkets, token, authHeaders, showMsg, inputCla
               </button>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BundleTab({ authHeaders }) {
+  const [reservations, setReservations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    axios.get('/api/bundle/reservations', authHeaders)
+      .then(({ data }) => setReservations(data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <p className="text-muted text-sm py-12 text-center">Loading…</p>;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="font-heading text-xl font-semibold text-white">Bundle Reservations</h3>
+          <p className="text-muted text-sm mt-0.5">Operator Accelerator — $997 bundle leads</p>
+        </div>
+        <div className="px-4 py-2 rounded-xl bg-accent/10 border border-accent/20 text-accent text-sm font-bold">
+          {reservations.length} total · ${(reservations.length * 997).toLocaleString()} pipeline
+        </div>
+      </div>
+
+      {reservations.length === 0 ? (
+        <div className="text-center py-16">
+          <div className="text-4xl mb-3">💼</div>
+          <p className="text-white font-heading font-semibold">No reservations yet</p>
+          <p className="text-muted text-sm mt-1">Share <span className="text-accent font-mono">/bundle</span> to start getting leads.</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[600px]">
+            <thead>
+              <tr className="border-b border-subtle text-muted">
+                {['Name', 'Email', 'Phone', 'City / Territory', 'Status', 'Date'].map(h => (
+                  <th key={h} className="text-left py-3 pr-4 font-medium text-xs uppercase tracking-wide">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {reservations.map(r => (
+                <tr key={r.id} className="border-b border-subtle/50 hover:bg-surface/60 transition-colors">
+                  <td className="py-3 pr-4 text-white font-medium">{r.name}</td>
+                  <td className="py-3 pr-4 text-muted">{r.email}</td>
+                  <td className="py-3 pr-4 text-muted font-mono text-xs">{r.phone}</td>
+                  <td className="py-3 pr-4">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 border border-accent/20 text-accent">{r.city}</span>
+                  </td>
+                  <td className="py-3 pr-4">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 capitalize">{r.status || 'pending'}</span>
+                  </td>
+                  <td className="py-3 text-muted text-xs">{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WebinarTab({ authHeaders }) {
+  const [registrations, setRegistrations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    axios.get('/api/webinar/registrations', authHeaders)
+      .then(({ data }) => setRegistrations(data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <p className="text-muted text-sm py-12 text-center">Loading…</p>;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="font-heading text-xl font-semibold text-white">Webinar Registrations</h3>
+          <p className="text-muted text-sm mt-0.5">Free training signups — warm leads for Nick to work</p>
+        </div>
+        <div className="px-4 py-2 rounded-xl bg-accent/10 border border-accent/20 text-accent text-sm font-bold">
+          {registrations.length} registered
+        </div>
+      </div>
+
+      {registrations.length === 0 ? (
+        <div className="text-center py-16">
+          <div className="text-4xl mb-3">🎓</div>
+          <p className="text-white font-heading font-semibold">No registrations yet</p>
+          <p className="text-muted text-sm mt-1">Share <span className="text-accent font-mono">/webinar</span> to start filling seats.</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[560px]">
+            <thead>
+              <tr className="border-b border-subtle text-muted">
+                {['Name', 'Email', 'Phone', 'Business', 'Registered'].map(h => (
+                  <th key={h} className="text-left py-3 pr-4 font-medium text-xs uppercase tracking-wide">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {registrations.map(r => (
+                <tr key={r.id} className="border-b border-subtle/50 hover:bg-surface/60 transition-colors">
+                  <td className="py-3 pr-4 text-white font-medium">{r.name}</td>
+                  <td className="py-3 pr-4 text-muted">{r.email}</td>
+                  <td className="py-3 pr-4 text-muted font-mono text-xs">{r.phone || '—'}</td>
+                  <td className="py-3 pr-4 text-muted text-xs">{r.business || '—'}</td>
+                  <td className="py-3 text-muted text-xs">{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
@@ -763,6 +888,16 @@ export default function Admin() {
                       </div>
                     )}
                   </div>
+                )}
+
+                {/* ── BUNDLE LEADS ── */}
+                {activeTab === 'bundle' && (
+                  <BundleTab token={token} authHeaders={authHeaders} />
+                )}
+
+                {/* ── WEBINAR SIGNUPS ── */}
+                {activeTab === 'webinar' && (
+                  <WebinarTab token={token} authHeaders={authHeaders} />
                 )}
               </>
             )}

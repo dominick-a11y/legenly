@@ -65,6 +65,40 @@ const TICKER_CITIES = [
   'San Antonio, TX', 'Jacksonville, FL', 'Louisville, KY', 'Richmond, VA', 'Boise, ID',
 ];
 
+const TOTAL_SLOTS = 50;
+
+// Territory data — claimed = active subscriber, hot = high waitlist demand, open = available
+const TERRITORIES = [
+  { city: 'Forsyth County, GA', state: 'GA', status: 'claimed' },
+  { city: 'Atlanta, GA',        state: 'GA', status: 'hot',  demand: 4 },
+  { city: 'Charlotte, NC',      state: 'NC', status: 'hot',  demand: 3 },
+  { city: 'Nashville, TN',      state: 'TN', status: 'hot',  demand: 3 },
+  { city: 'Dallas, TX',         state: 'TX', status: 'hot',  demand: 5 },
+  { city: 'Tampa, FL',          state: 'FL', status: 'hot',  demand: 2 },
+  { city: 'Austin, TX',         state: 'TX', status: 'hot',  demand: 2 },
+  { city: 'Raleigh, NC',        state: 'NC', status: 'open'  },
+  { city: 'Orlando, FL',        state: 'FL', status: 'open'  },
+  { city: 'Phoenix, AZ',        state: 'AZ', status: 'open'  },
+  { city: 'Denver, CO',         state: 'CO', status: 'open'  },
+  { city: 'Las Vegas, NV',      state: 'NV', status: 'open'  },
+  { city: 'Columbus, OH',       state: 'OH', status: 'open'  },
+  { city: 'Indianapolis, IN',   state: 'IN', status: 'open'  },
+  { city: 'Kansas City, MO',    state: 'MO', status: 'open'  },
+  { city: 'San Antonio, TX',    state: 'TX', status: 'open'  },
+  { city: 'Memphis, TN',        state: 'TN', status: 'open'  },
+  { city: 'Jacksonville, FL',   state: 'FL', status: 'open'  },
+];
+
+// Seeded recent activity (shown in the activity feed)
+const SEED_ACTIVITY = [
+  { city: 'Dallas, TX',        time: '2m ago' },
+  { city: 'Charlotte, NC',     time: '11m ago' },
+  { city: 'Nashville, TN',     time: '34m ago' },
+  { city: 'Atlanta, GA',       time: '1h ago' },
+  { city: 'Tampa, FL',         time: '2h ago' },
+  { city: 'Austin, TX',        time: '3h ago' },
+];
+
 // ─── Primitive UI components ──────────────────────────────────────────────────
 
 function Reveal({ children, delay = 0, className = '' }) {
@@ -136,6 +170,237 @@ function GridBg() {
   );
 }
 
+// ─── Territory Map ────────────────────────────────────────────────────────────
+
+function TerritoryMap({ onClaimClick }) {
+  const claimed = TERRITORIES.filter(t => t.status === 'claimed').length;
+  const hot     = TERRITORIES.filter(t => t.status === 'hot').length;
+  const open    = TERRITORIES.filter(t => t.status === 'open').length;
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden relative"
+      style={{
+        background: '#0a0a12',
+        border: '1px solid #1e1e2a',
+        boxShadow: '0 0 80px rgba(0,229,160,0.06), 0 8px 64px rgba(0,0,0,0.6)',
+      }}
+    >
+      {/* Header */}
+      <div
+        className="px-6 py-5 border-b border-subtle flex flex-col sm:flex-row sm:items-center gap-4 justify-between"
+        style={{ background: 'rgba(0,229,160,0.03)' }}
+      >
+        <div>
+          <p className="text-xs text-accent uppercase tracking-widest font-semibold mb-0.5">
+            Live Territory Map
+          </p>
+          <p className="text-white font-heading font-bold text-lg leading-tight">
+            {TOTAL_SLOTS - claimed} of {TOTAL_SLOTS} founding slots remaining
+          </p>
+        </div>
+
+        {/* Legend */}
+        <div className="flex items-center gap-5 shrink-0">
+          {[
+            { color: '#00e5a0', label: 'Claimed', count: claimed },
+            { color: '#f59e0b', label: 'High Demand', count: hot },
+            { color: '#3a3a52', label: 'Available', count: open },
+          ].map(({ color, label, count }) => (
+            <div key={label} className="flex items-center gap-1.5 text-xs text-muted">
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+              <span>{label}</span>
+              <span className="font-mono font-bold" style={{ color }}>{count}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Founding slots progress bar */}
+      <div className="px-6 pt-4 pb-1">
+        <div className="flex justify-between text-[10px] text-muted mb-1.5">
+          <span>{claimed} slot{claimed !== 1 ? 's' : ''} taken</span>
+          <span>{TOTAL_SLOTS - claimed} remaining at founding price</span>
+        </div>
+        <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full"
+            style={{
+              width: `${(claimed / TOTAL_SLOTS) * 100}%`,
+              background: 'linear-gradient(90deg, #00e5a0, #00c487)',
+              transition: 'width 1.2s ease',
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Territory grid */}
+      <div className="p-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+        {TERRITORIES.map((t) => {
+          const isClaimed = t.status === 'claimed';
+          const isHot     = t.status === 'hot';
+          const isOpen    = t.status === 'open';
+
+          return (
+            <button
+              key={t.city}
+              disabled={isClaimed}
+              onClick={isOpen || isHot ? onClaimClick : undefined}
+              className="relative rounded-xl px-3.5 py-3 text-left transition-all duration-200 group"
+              style={{
+                background: isClaimed
+                  ? 'rgba(0,229,160,0.08)'
+                  : isHot
+                  ? 'rgba(245,158,11,0.07)'
+                  : 'rgba(255,255,255,0.03)',
+                border: isClaimed
+                  ? '1px solid rgba(0,229,160,0.25)'
+                  : isHot
+                  ? '1px solid rgba(245,158,11,0.25)'
+                  : '1px solid rgba(255,255,255,0.07)',
+                cursor: isClaimed ? 'default' : 'pointer',
+              }}
+              onMouseEnter={e => {
+                if (!isClaimed) e.currentTarget.style.borderColor = isHot ? 'rgba(245,158,11,0.5)' : 'rgba(0,229,160,0.35)';
+              }}
+              onMouseLeave={e => {
+                if (!isClaimed) e.currentTarget.style.borderColor = isHot ? 'rgba(245,158,11,0.25)' : 'rgba(255,255,255,0.07)';
+              }}
+            >
+              {/* Status dot */}
+              <span
+                className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full"
+                style={{
+                  background: isClaimed ? '#00e5a0' : isHot ? '#f59e0b' : '#3a3a52',
+                  boxShadow: isClaimed
+                    ? '0 0 6px rgba(0,229,160,0.6)'
+                    : isHot
+                    ? '0 0 6px rgba(245,158,11,0.5)'
+                    : 'none',
+                }}
+              />
+
+              <p
+                className="text-xs font-semibold leading-snug pr-4"
+                style={{
+                  color: isClaimed ? '#00e5a0' : isHot ? '#f8c966' : '#9090b0',
+                }}
+              >
+                {t.city}
+              </p>
+
+              <p className="text-[10px] mt-0.5" style={{ color: isClaimed ? 'rgba(0,229,160,0.5)' : isHot ? 'rgba(245,158,11,0.6)' : '#45455a' }}>
+                {isClaimed ? 'Taken' : isHot ? `${t.demand} operators want this` : 'Available'}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* CTA footer */}
+      <div
+        className="px-6 py-4 border-t border-subtle flex flex-col sm:flex-row items-center justify-between gap-3"
+        style={{ background: 'rgba(0,229,160,0.02)' }}
+      >
+        <p className="text-xs text-muted">
+          Don't see your city?{' '}
+          <span className="text-white">Claim it anyway</span>{' '}
+          — we'll launch there based on demand.
+        </p>
+        <button
+          onClick={onClaimClick}
+          className="shrink-0 px-5 py-2 bg-accent text-bg font-heading font-bold text-xs rounded-lg transition-all hover:bg-accent-dim"
+          style={{ boxShadow: '0 0 20px rgba(0,229,160,0.25)' }}
+        >
+          Claim Your City →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Recent Activity Feed ─────────────────────────────────────────────────────
+
+function ActivityFeed() {
+  const [items, setItems] = useState(SEED_ACTIVITY);
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden"
+      style={{
+        background: '#0e0e16',
+        border: '1px solid #1e1e2a',
+        boxShadow: '0 4px 32px rgba(0,0,0,0.4)',
+      }}
+    >
+      <div className="px-5 py-4 border-b border-subtle flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-accent" style={{ animation: 'pulse-dot 2s infinite' }} />
+          <p className="text-xs font-semibold text-white uppercase tracking-wide">Recent Activity</p>
+        </div>
+        <span className="text-[10px] text-muted">Live</span>
+      </div>
+      <div className="divide-y divide-subtle/40">
+        {items.map((item, i) => (
+          <div key={i} className="flex items-center justify-between px-5 py-3">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold"
+                style={{ background: 'rgba(0,229,160,0.1)', color: '#00e5a0' }}
+              >
+                {item.city.charAt(0)}
+              </div>
+              <div>
+                <p className="text-xs text-white font-medium leading-snug">Operator joined</p>
+                <p className="text-[10px] text-muted">{item.city}</p>
+              </div>
+            </div>
+            <span className="text-[10px] text-muted shrink-0">{item.time}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Scarcity Banner ──────────────────────────────────────────────────────────
+
+function ScarcityBanner({ slotsLeft }) {
+  const pct = Math.round(((TOTAL_SLOTS - slotsLeft) / TOTAL_SLOTS) * 100);
+  return (
+    <div
+      className="rounded-2xl px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative overflow-hidden"
+      style={{
+        background: 'linear-gradient(135deg, rgba(245,158,11,0.08) 0%, rgba(245,158,11,0.03) 100%)',
+        border: '1px solid rgba(245,158,11,0.2)',
+        boxShadow: '0 0 40px rgba(245,158,11,0.06)',
+      }}
+    >
+      <div
+        aria-hidden
+        className="absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl pointer-events-none opacity-30"
+        style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.3) 0%, transparent 70%)' }}
+      />
+      <div className="relative">
+        <p className="text-xs text-amber-400 uppercase tracking-widest font-semibold mb-1">
+          Founding Member Pricing
+        </p>
+        <p className="text-white font-heading font-bold text-lg leading-tight">
+          Only {slotsLeft} slots left at $500/mo.{' '}
+          <span className="text-amber-400">Price increases after launch.</span>
+        </p>
+        <p className="text-muted text-xs mt-1">
+          {pct}% of founding slots are gone. Once we hit 50, the waitlist closes.
+        </p>
+      </div>
+      <div className="relative shrink-0 text-right">
+        <p className="text-3xl font-heading font-black text-amber-400">{slotsLeft}</p>
+        <p className="text-[10px] text-amber-400/60 uppercase tracking-wide">slots left</p>
+      </div>
+    </div>
+  );
+}
+
 // ─── ROI Calculator ───────────────────────────────────────────────────────────
 
 function RoiCalc() {
@@ -195,9 +460,9 @@ function RoiCalc() {
       <div className="mt-6 grid grid-cols-2 gap-3 relative">
         {[
           { label: 'Leads / month', val: leadsPerMonth, accent: false },
-          { label: 'Closed @ 65%', val: closedJobs, accent: false },
-          { label: 'Est. revenue', val: `$${revenue.toLocaleString()}`, accent: true },
-          { label: 'Subscription', val: '$500', accent: false },
+          { label: 'Closed @ 65%',  val: closedJobs,   accent: false },
+          { label: 'Est. revenue',  val: `$${revenue.toLocaleString()}`, accent: true },
+          { label: 'Subscription',  val: '$500',        accent: false },
         ].map(({ label, val, accent }) => (
           <div key={label} className="bg-bg rounded-xl p-3 border border-subtle">
             <p className="text-xs text-muted mb-1">{label}</p>
@@ -273,6 +538,53 @@ function ComparisonTable() {
   );
 }
 
+// ─── Social Proof Strip ───────────────────────────────────────────────────────
+
+function SocialProof() {
+  const proofs = [
+    { quote: 'Got 3 jobs my first week. The lead quality is night and day versus Angi.', name: 'Hunter P.', location: 'Forsyth County, GA', rev: '$2,100' },
+  ];
+
+  return (
+    <div className="grid md:grid-cols-1 gap-5">
+      {proofs.map((p) => (
+        <div
+          key={p.name}
+          className="rounded-2xl p-7 relative overflow-hidden"
+          style={{
+            background: 'linear-gradient(135deg, rgba(0,229,160,0.06) 0%, rgba(0,229,160,0.02) 100%)',
+            border: '1px solid rgba(0,229,160,0.15)',
+            boxShadow: '0 4px 32px rgba(0,0,0,0.4)',
+          }}
+        >
+          <div
+            aria-hidden
+            className="absolute top-0 left-0 w-32 h-32 rounded-full blur-3xl pointer-events-none"
+            style={{ background: 'radial-gradient(circle, rgba(0,229,160,0.1) 0%, transparent 70%)' }}
+          />
+          <p className="text-[28px] text-accent/40 font-heading font-black leading-none mb-3 relative select-none">"</p>
+          <p className="text-white text-base leading-relaxed mb-5 relative font-medium">
+            {p.quote}
+          </p>
+          <div className="flex items-center justify-between relative">
+            <div>
+              <p className="text-white text-sm font-semibold">{p.name}</p>
+              <p className="text-muted text-xs">{p.location}</p>
+            </div>
+            <div
+              className="px-3 py-1.5 rounded-lg"
+              style={{ background: 'rgba(0,229,160,0.1)', border: '1px solid rgba(0,229,160,0.2)' }}
+            >
+              <p className="text-[10px] text-accent/60 uppercase tracking-wide">Week 1 revenue</p>
+              <p className="text-accent font-heading font-extrabold text-lg leading-tight">{p.rev}</p>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function Waitlist() {
@@ -286,9 +598,13 @@ export default function Waitlist() {
   const [stats, setStats] = useState({ total: 0, cities: [] });
   const formRef = useRef(null);
 
+  const slotsLeft = TOTAL_SLOTS - 1; // 1 active subscriber (Hunter)
+
   useEffect(() => {
     axios.get('/api/waitlist/stats').then(({ data }) => setStats(data)).catch(() => {});
   }, []);
+
+  const scrollToForm = () => formRef.current?.scrollIntoView({ behavior: 'smooth' });
 
   const toggleLeadSource = (src) =>
     setForm(prev => ({
@@ -413,26 +729,17 @@ export default function Waitlist() {
 
       {/* ── Hero ─────────────────────────────────────────────────────────────── */}
       <section className="relative z-10 pt-16 pb-10 px-4 text-center max-w-4xl mx-auto">
-        {stats.total > 0 && (
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-semibold mb-10">
-            <span className="w-1.5 h-1.5 rounded-full bg-accent pulse-dot" />
-            {stats.total} operators have already claimed their cities
-          </div>
-        )}
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-semibold mb-10">
+          <span className="w-1.5 h-1.5 rounded-full bg-accent pulse-dot" />
+          {slotsLeft} founding slots remaining — launching April 7
+        </div>
 
         <h1
           className="font-heading font-black text-5xl md:text-6xl lg:text-[5rem] mb-8"
           style={{ letterSpacing: '-0.015em', lineHeight: '1.12' }}
         >
-          <span className="block text-white">Stop Splitting</span>
-          <span className="block relative inline-block">
-            <span className="text-white">Your Leads</span>
-            <span
-              aria-hidden
-              className="absolute left-0 -bottom-1 w-full h-[3px] rounded-full"
-              style={{ background: 'linear-gradient(90deg, #00e5a0, #00c487)' }}
-            />
-          </span>
+          <span className="block text-white">The Exclusive Lead</span>
+          <span className="block text-white">Platform for Junk</span>
           <span
             className="block mt-1"
             style={{
@@ -444,21 +751,24 @@ export default function Waitlist() {
               animation: 'gradient-shift 5s ease infinite',
             }}
           >
-            With Anyone.
+            Removal Operators.
           </span>
         </h1>
 
-        <p className="text-white/60 text-lg max-w-xl mx-auto mb-10 leading-relaxed">
-          We lock down{' '}
-          <span className="text-white font-semibold">one operator per city</span>{' '}
-          and route every single lead directly to their phone.{' '}
-          While competitors fight over the same customers,{' '}
-          <span className="text-white font-semibold">you're closing jobs they never see.</span>
+        <p className="text-white/60 text-xl max-w-2xl mx-auto mb-6 leading-relaxed">
+          We run Facebook ads in your city, capture the leads, and route every single one{' '}
+          <span className="text-white font-semibold">exclusively to you</span>.
+          One operator per market. No bidding. No competition. Just jobs.
+        </p>
+
+        <p className="text-white/40 text-sm max-w-lg mx-auto mb-10 leading-relaxed">
+          Junk King franchises cost up to $487K to get an exclusive territory.
+          Legenly does the same thing for <span className="text-accent font-semibold">$500/month</span> — and you can cancel anytime.
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-4 mb-10">
           <button
-            onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })}
+            onClick={scrollToForm}
             className="relative px-9 py-4 bg-accent text-bg font-heading font-bold text-base rounded-xl transition-all hover:bg-accent-dim active:scale-95"
             style={{ boxShadow: '0 0 28px rgba(0,229,160,0.3), 0 4px 16px rgba(0,0,0,0.3)' }}
             onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 0 48px rgba(0,229,160,0.45), 0 4px 20px rgba(0,0,0,0.4)'; }}
@@ -478,8 +788,8 @@ export default function Waitlist() {
         <div className="flex flex-wrap justify-center gap-6 text-sm text-muted">
           {[
             { icon: '🔒', text: 'One operator per city' },
-            { icon: '⚡', text: 'Leads in seconds' },
-            { icon: '💰', text: '$500/mo flat' },
+            { icon: '⚡', text: 'Leads hit your phone instantly' },
+            { icon: '💰', text: '$500/mo flat — no per-lead fees' },
             { icon: '✅', text: 'Cancel anytime' },
           ].map(({ icon, text }) => (
             <span key={text} className="flex items-center gap-1.5">
@@ -506,6 +816,33 @@ export default function Waitlist() {
         <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-bg to-transparent z-10 pointer-events-none" />
       </div>
 
+      {/* ── Territory Map ─────────────────────────────────────────────────────── */}
+      <section className="relative z-10 max-w-6xl mx-auto px-4 md:px-8 mb-16">
+        <Reveal>
+          <div className="text-center mb-8">
+            <p className="text-accent text-xs uppercase tracking-widest font-semibold mb-2">Territories</p>
+            <h2 className="font-heading text-2xl md:text-3xl font-black text-white" style={{ letterSpacing: '-0.02em' }}>
+              Your market might already be claimed.
+            </h2>
+            <p className="text-muted text-sm mt-2 max-w-md mx-auto">
+              High-demand metros are filling up fast. If your city is available, lock it in before someone else does.
+            </p>
+          </div>
+        </Reveal>
+
+        <Reveal delay={80}>
+          <div className="grid lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <TerritoryMap onClaimClick={scrollToForm} />
+            </div>
+            <div className="space-y-4">
+              <ActivityFeed />
+              <ScarcityBanner slotsLeft={slotsLeft} />
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
       {/* ── How it works ─────────────────────────────────────────────────────── */}
       <section id="how-it-works" className="relative z-10 max-w-5xl mx-auto px-4 md:px-8 mb-16">
         <Reveal>
@@ -523,19 +860,19 @@ export default function Waitlist() {
               step: '01',
               icon: '🗺️',
               title: 'Claim Your Territory',
-              desc: 'Join the waitlist and lock in your city. The first junk removal operator in any metro gets exclusive rights — no one can take it from you.',
+              desc: 'Join the waitlist and lock in your city. The first junk removal operator in any metro gets exclusive rights — no one can take it from you, ever.',
             },
             {
               step: '02',
               icon: '📲',
               title: 'Leads Hit Your Phone',
-              desc: 'Every time a customer in your area requests a junk removal quote, the lead goes directly to you — and only you. Instantly.',
+              desc: 'We run Facebook ads in your market. Every quote request goes directly to you — and only you. No bidding. No competition. Instant notification.',
             },
             {
               step: '03',
               icon: '🏆',
-              title: 'Close. Keep the Profit.',
-              desc: 'Exclusive leads close at 65%. You break even in 2–3 jobs. Every lead after that is margin you keep — not margin you split.',
+              title: 'Close. Keep 100% of the Profit.',
+              desc: 'Exclusive leads close at 65%. You break even in 2–3 jobs. Every lead after that is pure margin you keep — not margin you split with 4 other guys.',
             },
           ].map((item, i) => (
             <Reveal key={item.step} delay={i * 80}>
@@ -563,6 +900,21 @@ export default function Waitlist() {
         </div>
       </section>
 
+      {/* ── Social Proof ──────────────────────────────────────────────────────── */}
+      <section className="relative z-10 max-w-3xl mx-auto px-4 md:px-8 mb-16">
+        <Reveal>
+          <div className="text-center mb-8">
+            <p className="text-accent text-xs uppercase tracking-widest font-semibold mb-2">From the field</p>
+            <h2 className="font-heading text-2xl md:text-3xl font-black text-white" style={{ letterSpacing: '-0.02em' }}>
+              Real results, real operators
+            </h2>
+          </div>
+        </Reveal>
+        <Reveal delay={80}>
+          <SocialProof />
+        </Reveal>
+      </section>
+
       {/* ── Stats ────────────────────────────────────────────────────────────── */}
       <section className="relative z-10 max-w-5xl mx-auto px-4 md:px-8 mb-16">
         <Reveal>
@@ -577,8 +929,8 @@ export default function Waitlist() {
             />
             <div className="grid grid-cols-2 md:grid-cols-4 gap-10 md:gap-6 relative">
               <StatCard value={391} suffix="%" label="higher close rate vs shared leads" />
-              <StatCard value={65} suffix="%" label="average close rate on our leads" />
-              <StatCard value={500} prefix="$" label="flat monthly fee, zero per-lead charges" />
+              <StatCard value={65} suffix="%" label="average close rate on exclusive leads" />
+              <StatCard value={500} prefix="$" label="flat monthly fee — zero per-lead charges" />
               <StatCard value={1} label="operator per city — that's the whole point" />
             </div>
           </div>
@@ -617,8 +969,8 @@ export default function Waitlist() {
                 </p>
                 <div className="space-y-3.5 relative">
                   {[
-                    { name: 'Junk King franchise', cost: '$93K – $180K upfront' },
-                    { name: 'College Hunks franchise', cost: '$89K – $280K upfront' },
+                    { name: 'Junk King franchise',      cost: '$93K – $180K upfront' },
+                    { name: 'College Hunks franchise',  cost: '$89K – $280K upfront' },
                     { name: '1-800-GOT-JUNK franchise', cost: '$178K – $487K upfront' },
                   ].map(({ name, cost }) => (
                     <div key={name} className="flex justify-between items-center">
@@ -626,9 +978,7 @@ export default function Waitlist() {
                       <span className="text-sm text-muted line-through">{cost}</span>
                     </div>
                   ))}
-                  <div
-                    className="border-t border-subtle/60 pt-3.5 flex justify-between items-center"
-                  >
+                  <div className="border-t border-subtle/60 pt-3.5 flex justify-between items-center">
                     <span className="text-sm font-bold text-white">Legenly exclusive territory</span>
                     <span className="text-base font-extrabold text-accent">$500/mo</span>
                   </div>
@@ -691,17 +1041,43 @@ export default function Waitlist() {
         </Reveal>
       </section>
 
-      {/* ── Pre-form pitch ────────────────────────────────────────────────────── */}
-      <section className="relative z-10 max-w-2xl mx-auto px-4 md:px-8 mb-12 text-center">
+      {/* ── Pre-form FOMO ──────────────────────────────────────────────────────── */}
+      <section className="relative z-10 max-w-2xl mx-auto px-4 md:px-8 mb-8 text-center">
         <Reveal>
-          <p className="text-accent text-xs uppercase tracking-widest font-semibold mb-2">Ready?</p>
-          <h2 className="font-heading text-2xl md:text-3xl font-black text-white mb-3" style={{ letterSpacing: '-0.02em' }}>
-            Your city is available.<br />Claim it before someone else does.
-          </h2>
-          <p className="text-muted text-sm leading-relaxed max-w-lg mx-auto">
-            We're launching in high-demand metros first — based entirely on waitlist demand.
-            The operator with the most intent in each city gets first call.
-          </p>
+          <div
+            className="rounded-2xl px-8 py-8 mb-8 relative overflow-hidden"
+            style={{
+              background: 'linear-gradient(135deg, rgba(0,229,160,0.07) 0%, rgba(0,229,160,0.02) 100%)',
+              border: '1px solid rgba(0,229,160,0.15)',
+            }}
+          >
+            <div
+              aria-hidden
+              className="absolute inset-0 pointer-events-none"
+              style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(0,229,160,0.08) 0%, transparent 60%)' }}
+            />
+            <p className="text-accent text-xs uppercase tracking-widest font-semibold mb-3 relative">Last call</p>
+            <h2 className="font-heading text-2xl md:text-3xl font-black text-white mb-3 relative" style={{ letterSpacing: '-0.02em' }}>
+              Your city is open.<br />
+              <span className="text-accent">It won't be for long.</span>
+            </h2>
+            <p className="text-muted text-sm leading-relaxed max-w-md mx-auto relative">
+              30+ operators have already joined the waitlist. Founding slots are capped at 50.
+              When they're gone, the price goes up and exclusivity becomes harder to guarantee.
+            </p>
+            <div className="mt-5 flex justify-center gap-8 relative">
+              {[
+                { val: '30+', label: 'on waitlist' },
+                { val: `${slotsLeft}`, label: 'slots left' },
+                { val: 'Apr 7', label: 'launch date' },
+              ].map(({ val, label }) => (
+                <div key={label} className="text-center">
+                  <p className="text-2xl font-heading font-black text-white">{val}</p>
+                  <p className="text-[10px] text-muted uppercase tracking-wide mt-0.5">{label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </Reveal>
       </section>
 
@@ -729,13 +1105,13 @@ export default function Waitlist() {
                 style={{ background: 'rgba(0,229,160,0.1)', border: '1px solid rgba(0,229,160,0.2)', color: '#00e5a0' }}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-accent pulse-dot" />
-                One slot per city
+                {slotsLeft} founding slots remaining
               </div>
               <h2 className="font-heading text-2xl md:text-3xl font-extrabold text-white mb-2">
-                Claim your territory
+                Secure your territory
               </h2>
               <p className="text-muted text-sm">
-                No payment required. We'll reach out when your city opens.
+                No payment today. We'll call you personally when your city is ready to launch.
               </p>
             </div>
 
@@ -783,7 +1159,7 @@ export default function Waitlist() {
               <div>
                 <label className="block text-xs text-muted uppercase tracking-wide font-medium mb-1.5">
                   Your city / metro *{' '}
-                  <span className="text-accent normal-case font-normal">— this becomes your territory</span>
+                  <span className="text-accent normal-case font-normal">— this becomes your exclusive territory</span>
                 </label>
                 <input
                   className={inputClass}
@@ -861,11 +1237,11 @@ export default function Waitlist() {
                       Joining…
                     </span>
                   ) : (
-                    'Claim My City →'
+                    'Secure My Territory →'
                   )}
                 </button>
                 <p className="text-center text-xs text-muted mt-3 leading-relaxed">
-                  No payment required to join. First come, first served — one slot per city.
+                  No payment required to join. First come, first served — one exclusive slot per city.
                 </p>
               </div>
             </form>

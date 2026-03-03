@@ -44,6 +44,23 @@ router.post('/leads', (req, res) => {
   res.status(201).json(newLead);
 });
 
+// DELETE /api/admin/leads/:id — delete a single lead
+router.delete('/leads/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const lead = db.prepare('SELECT id FROM leads WHERE id = ?').get(id);
+  if (!lead) return res.status(404).json({ error: 'Lead not found' });
+  db.prepare('DELETE FROM leads WHERE id = ?').run(id);
+  res.json({ success: true });
+});
+
+// DELETE /api/admin/leads — delete all leads
+router.delete('/leads', (req, res) => {
+  const { confirm } = req.body || {};
+  if (confirm !== 'yes') return res.status(400).json({ error: 'Send { confirm: "yes" } to delete all leads' });
+  db.prepare('DELETE FROM leads').run();
+  res.json({ success: true });
+});
+
 // GET /api/admin/subscribers — list all subscriber accounts
 router.get('/subscribers', (req, res) => {
   const subscribers = db.prepare(

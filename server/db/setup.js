@@ -106,27 +106,44 @@ function setup() {
       monthlyLeadSpend TEXT,
       createdAt TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS bundle_reservations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      phone TEXT NOT NULL,
+      city TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      createdAt TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS webinar_registrations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      phone TEXT,
+      business TEXT,
+      createdAt TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS pipeline_contacts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      phone TEXT,
+      email TEXT,
+      source TEXT DEFAULT 'Other',
+      stage TEXT DEFAULT 'new',
+      notes TEXT,
+      followUpAt TEXT,
+      dealValue REAL DEFAULT 997,
+      addedBy INTEGER,
+      createdAt TEXT DEFAULT (datetime('now')),
+      updatedAt TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (addedBy) REFERENCES users(id)
+    );
   `);
 
-  // Ensure all markets exist (safe to run on existing databases)
-  const upsertMarket = db.prepare(
-    "INSERT OR IGNORE INTO markets (name, cities, status) VALUES (?, ?, 'available')"
-  );
-  const defaultMarkets = [
-    ['Forsyth County GA', 'Cumming,Alpharetta,Johns Creek,Suwanee'],
-    ['North Atlanta GA', 'Roswell,Sandy Springs,Dunwoody,Brookhaven'],
-    ['Gwinnett County GA', 'Lawrenceville,Duluth,Buford,Sugar Hill'],
-    ['Cherokee County GA', 'Canton,Woodstock,Ball Ground,Holly Springs'],
-    ['Cobb County GA', 'Marietta,Smyrna,Kennesaw,Acworth'],
-    ['North Dallas TX', 'Plano,Frisco,Allen,McKinney'],
-    ['South Charlotte NC', 'Pineville,Matthews,Ballantyne,Fort Mill'],
-    ['North Charlotte NC', 'Huntersville,Cornelius,Davidson,Mooresville'],
-    ['Nashville TN', 'Brentwood,Franklin,Nolensville,Spring Hill'],
-    ['North Tampa FL', 'Wesley Chapel,Zephyrhills,Land O Lakes,Lutz'],
-  ];
-  for (const [name, cities] of defaultMarkets) upsertMarket.run(name, cities);
-
-  // Add new columns to existing tables if they don't exist
+  // Add new columns to existing tables if they don't exist — must run BEFORE upserts
   addColumnIfNotExists('leads', 'assignedMarket', 'TEXT');
   addColumnIfNotExists('users', 'isFounder', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('users', 'phone', 'TEXT');
@@ -139,6 +156,27 @@ function setup() {
   addColumnIfNotExists('users', 'stripeCustomerId', 'TEXT');
   addColumnIfNotExists('users', 'stripeSubscriptionId', 'TEXT');
   addColumnIfNotExists('users', 'subscriptionStatus', "TEXT DEFAULT 'none'");
+
+  // Ensure all markets exist and city lists are current.
+  // ON CONFLICT DO UPDATE ensures existing markets get updated city lists on restart.
+  const upsertMarket = db.prepare(`
+    INSERT INTO markets (name, cities, status) VALUES (?, ?, 'available')
+    ON CONFLICT(name) DO UPDATE SET cities = excluded.cities
+  `);
+  const defaultMarkets = [
+    // Forsyth County GA — expanded to cover adjacent cities Hunter's ads may reach
+    ['Forsyth County GA', 'Cumming,Alpharetta,Johns Creek,Suwanee,Milton,Gainesville,Dawsonville'],
+    ['North Atlanta GA', 'Roswell,Sandy Springs,Dunwoody,Brookhaven'],
+    ['Gwinnett County GA', 'Lawrenceville,Duluth,Buford,Sugar Hill'],
+    ['Cherokee County GA', 'Canton,Woodstock,Ball Ground,Holly Springs'],
+    ['Cobb County GA', 'Marietta,Smyrna,Kennesaw,Acworth'],
+    ['North Dallas TX', 'Plano,Frisco,Allen,McKinney'],
+    ['South Charlotte NC', 'Pineville,Matthews,Ballantyne,Fort Mill'],
+    ['North Charlotte NC', 'Huntersville,Cornelius,Davidson,Mooresville'],
+    ['Nashville TN', 'Brentwood,Franklin,Nolensville,Spring Hill'],
+    ['North Tampa FL', 'Wesley Chapel,Zephyrhills,Land O Lakes,Lutz'],
+  ];
+  for (const [name, cities] of defaultMarkets) upsertMarket.run(name, cities);
 
   const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
   if (userCount.count === 0) {
