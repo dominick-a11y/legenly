@@ -20,7 +20,8 @@ function setup() {
     CREATE TABLE IF NOT EXISTS markets (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT UNIQUE NOT NULL,
-      cities TEXT NOT NULL
+      cities TEXT NOT NULL,
+      status TEXT DEFAULT 'available'
     );
 
     CREATE TABLE IF NOT EXISTS users (
