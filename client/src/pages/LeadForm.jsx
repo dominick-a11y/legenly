@@ -70,28 +70,28 @@ export default function LeadForm() {
         </div>
 
         <form onSubmit={handleSubmit} style={styles.form}>
-          {/* Name + Phone */}
-          <div style={styles.row}>
-            <div style={styles.field}>
-              <label style={styles.label}>Your Name *</label>
-              <input
-                style={styles.input}
-                type="text"
-                placeholder="Jane Smith"
-                value={form.name}
-                onChange={e => set('name', e.target.value)}
-              />
-            </div>
-            <div style={styles.field}>
-              <label style={styles.label}>Phone Number *</label>
-              <input
-                style={styles.input}
-                type="tel"
-                placeholder="(555) 000-0000"
-                value={form.phone}
-                onChange={e => set('phone', e.target.value)}
-              />
-            </div>
+          {/* Name */}
+          <div style={styles.fieldFull}>
+            <label style={styles.label}>Your Name *</label>
+            <input
+              style={styles.input}
+              type="text"
+              placeholder="Jane Smith"
+              value={form.name}
+              onChange={e => set('name', e.target.value)}
+            />
+          </div>
+
+          {/* Phone */}
+          <div style={styles.fieldFull}>
+            <label style={styles.label}>Phone Number *</label>
+            <input
+              style={styles.input}
+              type="tel"
+              placeholder="(555) 000-0000"
+              value={form.phone}
+              onChange={e => set('phone', e.target.value)}
+            />
           </div>
 
           {/* Email */}

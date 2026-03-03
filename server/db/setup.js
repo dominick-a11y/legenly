@@ -142,25 +142,7 @@ function setup() {
     );
   `);
 
-  // Ensure all markets exist (safe to run on existing databases)
-  const upsertMarket = db.prepare(
-    "INSERT OR IGNORE INTO markets (name, cities, status) VALUES (?, ?, 'available')"
-  );
-  const defaultMarkets = [
-    ['Forsyth County GA', 'Cumming,Alpharetta,Johns Creek,Suwanee'],
-    ['North Atlanta GA', 'Roswell,Sandy Springs,Dunwoody,Brookhaven'],
-    ['Gwinnett County GA', 'Lawrenceville,Duluth,Buford,Sugar Hill'],
-    ['Cherokee County GA', 'Canton,Woodstock,Ball Ground,Holly Springs'],
-    ['Cobb County GA', 'Marietta,Smyrna,Kennesaw,Acworth'],
-    ['North Dallas TX', 'Plano,Frisco,Allen,McKinney'],
-    ['South Charlotte NC', 'Pineville,Matthews,Ballantyne,Fort Mill'],
-    ['North Charlotte NC', 'Huntersville,Cornelius,Davidson,Mooresville'],
-    ['Nashville TN', 'Brentwood,Franklin,Nolensville,Spring Hill'],
-    ['North Tampa FL', 'Wesley Chapel,Zephyrhills,Land O Lakes,Lutz'],
-  ];
-  for (const [name, cities] of defaultMarkets) upsertMarket.run(name, cities);
-
-  // Add new columns to existing tables if they don't exist
+  // Add new columns to existing tables if they don't exist — must run BEFORE upserts
   addColumnIfNotExists('leads', 'assignedMarket', 'TEXT');
   addColumnIfNotExists('users', 'isFounder', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('users', 'phone', 'TEXT');
@@ -174,24 +156,33 @@ function setup() {
   addColumnIfNotExists('users', 'stripeSubscriptionId', 'TEXT');
   addColumnIfNotExists('users', 'subscriptionStatus', "TEXT DEFAULT 'none'");
 
+  // Ensure all markets exist and city lists are current.
+  // ON CONFLICT DO UPDATE ensures existing markets get updated city lists on restart.
+  const upsertMarket = db.prepare(`
+    INSERT INTO markets (name, cities, status) VALUES (?, ?, 'available')
+    ON CONFLICT(name) DO UPDATE SET cities = excluded.cities
+  `);
+  const defaultMarkets = [
+    // Forsyth County GA — expanded to cover adjacent cities Hunter's ads may reach
+    ['Forsyth County GA', 'Cumming,Alpharetta,Johns Creek,Suwanee,Milton,Gainesville,Dawsonville'],
+    ['North Atlanta GA', 'Roswell,Sandy Springs,Dunwoody,Brookhaven'],
+    ['Gwinnett County GA', 'Lawrenceville,Duluth,Buford,Sugar Hill'],
+    ['Cherokee County GA', 'Canton,Woodstock,Ball Ground,Holly Springs'],
+    ['Cobb County GA', 'Marietta,Smyrna,Kennesaw,Acworth'],
+    ['North Dallas TX', 'Plano,Frisco,Allen,McKinney'],
+    ['South Charlotte NC', 'Pineville,Matthews,Ballantyne,Fort Mill'],
+    ['North Charlotte NC', 'Huntersville,Cornelius,Davidson,Mooresville'],
+    ['Nashville TN', 'Brentwood,Franklin,Nolensville,Spring Hill'],
+    ['North Tampa FL', 'Wesley Chapel,Zephyrhills,Land O Lakes,Lutz'],
+  ];
+  for (const [name, cities] of defaultMarkets) upsertMarket.run(name, cities);
+
   const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
   if (userCount.count === 0) {
     console.log('[DB] Seeding database...');
 
     const adminHash = bcrypt.hashSync('admin123', 10);
     const hunterHash = bcrypt.hashSync('hunter123', 10);
-
-    const insertMarket = db.prepare("INSERT INTO markets (name, cities, status) VALUES (?, ?, 'available')");
-    insertMarket.run('Forsyth County GA', 'Cumming,Alpharetta,Johns Creek,Suwanee');
-    insertMarket.run('North Atlanta GA', 'Roswell,Sandy Springs,Dunwoody,Brookhaven');
-    insertMarket.run('Gwinnett County GA', 'Lawrenceville,Duluth,Buford,Sugar Hill');
-    insertMarket.run('Cherokee County GA', 'Canton,Woodstock,Ball Ground,Holly Springs');
-    insertMarket.run('Cobb County GA', 'Marietta,Smyrna,Kennesaw,Acworth');
-    insertMarket.run('North Dallas TX', 'Plano,Frisco,Allen,McKinney');
-    insertMarket.run('South Charlotte NC', 'Pineville,Matthews,Ballantyne,Fort Mill');
-    insertMarket.run('North Charlotte NC', 'Huntersville,Cornelius,Davidson,Mooresville');
-    insertMarket.run('Nashville TN', 'Brentwood,Franklin,Nolensville,Spring Hill');
-    insertMarket.run('North Tampa FL', 'Wesley Chapel,Zephyrhills,Land O Lakes,Lutz');
 
     db.prepare(
       "INSERT INTO users (email, password, role, name, isFounder) VALUES (?, ?, 'admin', ?, 1)"
