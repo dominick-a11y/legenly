@@ -147,18 +147,6 @@ function setup() {
     const adminHash = bcrypt.hashSync('admin123', 10);
     const hunterHash = bcrypt.hashSync('hunter123', 10);
 
-    const insertMarket = db.prepare("INSERT INTO markets (name, cities, status) VALUES (?, ?, 'available')");
-    insertMarket.run('Forsyth County GA', 'Cumming,Alpharetta,Johns Creek,Suwanee');
-    insertMarket.run('North Atlanta GA', 'Roswell,Sandy Springs,Dunwoody,Brookhaven');
-    insertMarket.run('Gwinnett County GA', 'Lawrenceville,Duluth,Buford,Sugar Hill');
-    insertMarket.run('Cherokee County GA', 'Canton,Woodstock,Ball Ground,Holly Springs');
-    insertMarket.run('Cobb County GA', 'Marietta,Smyrna,Kennesaw,Acworth');
-    insertMarket.run('North Dallas TX', 'Plano,Frisco,Allen,McKinney');
-    insertMarket.run('South Charlotte NC', 'Pineville,Matthews,Ballantyne,Fort Mill');
-    insertMarket.run('North Charlotte NC', 'Huntersville,Cornelius,Davidson,Mooresville');
-    insertMarket.run('Nashville TN', 'Brentwood,Franklin,Nolensville,Spring Hill');
-    insertMarket.run('North Tampa FL', 'Wesley Chapel,Zephyrhills,Land O Lakes,Lutz');
-
     db.prepare(
       "INSERT INTO users (email, password, role, name, isFounder) VALUES (?, ?, 'admin', ?, 1)"
     ).run('admin@legenly.io', adminHash, 'Admin');
