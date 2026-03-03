@@ -156,6 +156,8 @@ function setup() {
   addColumnIfNotExists('users', 'stripeCustomerId', 'TEXT');
   addColumnIfNotExists('users', 'stripeSubscriptionId', 'TEXT');
   addColumnIfNotExists('users', 'subscriptionStatus', "TEXT DEFAULT 'none'");
+  addColumnIfNotExists('waitlist', 'status', "TEXT DEFAULT 'new'");
+  addColumnIfNotExists('waitlist', 'notes', 'TEXT');
 
   // Ensure all markets exist and city lists are current.
   // ON CONFLICT DO UPDATE ensures existing markets get updated city lists on restart.
