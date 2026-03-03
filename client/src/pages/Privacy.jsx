@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 
 const Section = ({ title, children }) => (
   <div className="mb-8">
@@ -13,8 +12,7 @@ export default function Privacy() {
     <div className="min-h-screen bg-bg text-white">
       <div className="max-w-3xl mx-auto px-6 py-16">
         <div className="mb-10">
-          <Link to="/" className="text-emerald-400 text-sm hover:underline">← Back to Legenly</Link>
-          <h1 className="text-3xl font-bold mt-6 mb-2">Privacy Policy</h1>
+          <h1 className="text-3xl font-bold mb-2">Privacy Policy</h1>
           <p className="text-gray-500 text-sm">Effective date: March 3, 2026</p>
         </div>
 
