@@ -108,3 +108,39 @@ h1, h2, h3, h4, h5, h6 {
 .glow-breathe {
   animation: glow-breathe 3s ease-in-out infinite;
 }
+
+@keyframes map-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(0,229,160,0.5); }
+  70%  { box-shadow: 0 0 0 10px rgba(0,229,160,0); }
+  100% { box-shadow: 0 0 0 0 rgba(0,229,160,0); }
+}
+
+.market-pulse {
+  animation: map-pulse 2.2s ease-out infinite;
+}
+
+@keyframes shimmer-slide {
+  from { background-position: -200% center; }
+  to   { background-position: 200% center; }
+}
+
+@keyframes orb-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(40px, -30px) scale(1.05); }
+  66%       { transform: translate(-20px, 20px) scale(0.97); }
+}
+
+.orb-drift {
+  animation: orb-drift 18s ease-in-out infinite;
+}
+
+@keyframes badge-pop {
+  0%   { transform: scale(0.92); opacity: 0; }
+  60%  { transform: scale(1.04); }
+  100% { transform: scale(1);    opacity: 1; }
+}
+
+.badge-pop {
+  animation: badge-pop 0.6s cubic-bezier(.22,1,.36,1) forwards;
+}
+

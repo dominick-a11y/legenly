@@ -72,7 +72,8 @@ function AppRoutes() {
         }
       />
       <Route path="/register" element={<Register />} />
-      <Route path="/waitlist" element={<Waitlist />} />
+      <Route path="/masterclass" element={<Waitlist />} />
+      <Route path="/waitlist" element={<Navigate to="/masterclass" replace />} />
       <Route path="/get-quote" element={<LeadForm />} />
       <Route path="/bundle" element={<Bundle />} />
       <Route path="/webinar" element={<Webinar />} />
