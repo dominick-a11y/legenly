@@ -1,6 +1,7 @@
 const express = require('express');
 const https = require('https');
 const { db } = require('../db/setup');
+const { notifyMarketOperators } = require('../services/notify');
 
 const router = express.Router();
 
@@ -38,6 +39,11 @@ function processLead({ app, name, phone, email, city, state, jobType, descriptio
 
   const newLead = db.prepare('SELECT * FROM leads WHERE id = ?').get(result.lastInsertRowid);
   app.locals.io?.to(assignedMarket).emit('newLead', newLead);
+
+  // Fire-and-forget SMS — don't block the response
+  notifyMarketOperators(newLead, db).catch(err =>
+    console.error('[Webhook] SMS notification failed:', err.message)
+  );
 
   return { leadId: newLead.id, market: assignedMarket };
 }

@@ -270,12 +270,40 @@ router.get('/waitlist', (req, res) => {
 // GET /api/admin/waitlist/export — CSV download
 router.get('/waitlist/export', (req, res) => {
   const signups = db.prepare('SELECT * FROM waitlist ORDER BY createdAt DESC').all();
-  const headers = ['id', 'name', 'email', 'phone', 'city', 'monthlyRevenue', 'leadSources', 'monthlyLeadSpend', 'createdAt'];
+  const headers = ['id', 'name', 'email', 'phone', 'city', 'monthlyRevenue', 'leadSources', 'monthlyLeadSpend', 'status', 'notes', 'createdAt'];
   const rows = signups.map(s => headers.map(h => JSON.stringify(s[h] ?? '')).join(','));
   const csv = [headers.join(','), ...rows].join('\n');
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="legenly-waitlist.csv"');
   res.send(csv);
+});
+
+// PATCH /api/admin/waitlist/:id — update status and/or notes
+router.patch('/waitlist/:id', (req, res) => {
+  const { id } = req.params;
+  const { status, notes } = req.body || {};
+
+  const VALID_STATUSES = ['new', 'contacted', 'committed', 'converted', 'passed'];
+  if (status && !VALID_STATUSES.includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+
+  const existing = db.prepare('SELECT id FROM waitlist WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Not found' });
+
+  if (status !== undefined) db.prepare('UPDATE waitlist SET status = ? WHERE id = ?').run(status, id);
+  if (notes !== undefined) db.prepare('UPDATE waitlist SET notes = ? WHERE id = ?').run(notes, id);
+
+  res.json({ success: true });
+});
+
+// DELETE /api/admin/waitlist/:id — remove a waitlist entry
+router.delete('/waitlist/:id', (req, res) => {
+  const { id } = req.params;
+  const existing = db.prepare('SELECT id FROM waitlist WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Not found' });
+  db.prepare('DELETE FROM waitlist WHERE id = ?').run(id);
+  res.json({ success: true });
 });
 
 module.exports = router;

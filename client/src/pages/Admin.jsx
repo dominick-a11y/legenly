@@ -367,6 +367,8 @@ export default function Admin() {
   const [confirmDeleteSub, setConfirmDeleteSub] = useState(null);
   const [waitlistData, setWaitlistData] = useState({ signups: [], cityStats: [], total: 0 });
   const [waitlistLoaded, setWaitlistLoaded] = useState(false);
+  const [waitlistNoteEditing, setWaitlistNoteEditing] = useState(null); // id of row being edited
+  const [waitlistNoteVal, setWaitlistNoteVal] = useState('');
 
   const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
 
@@ -467,6 +469,51 @@ export default function Admin() {
 
   const handleLeadStatusChange = (leadId, newStatus) => {
     setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus } : l));
+  };
+
+  const handleWaitlistStatusChange = async (id, status) => {
+    try {
+      await axios.patch(`/api/admin/waitlist/${id}`, { status }, authHeaders);
+      setWaitlistData(prev => ({
+        ...prev,
+        signups: prev.signups.map(s => s.id === id ? { ...s, status } : s)
+      }));
+    } catch { /* silent */ }
+  };
+
+  const handleWaitlistNoteSave = async (id) => {
+    try {
+      await axios.patch(`/api/admin/waitlist/${id}`, { notes: waitlistNoteVal }, authHeaders);
+      setWaitlistData(prev => ({
+        ...prev,
+        signups: prev.signups.map(s => s.id === id ? { ...s, notes: waitlistNoteVal } : s)
+      }));
+      setWaitlistNoteEditing(null);
+    } catch { /* silent */ }
+  };
+
+  const handleWaitlistDelete = async (id) => {
+    if (!window.confirm('Remove this person from the waitlist?')) return;
+    try {
+      await axios.delete(`/api/admin/waitlist/${id}`, authHeaders);
+      setWaitlistData(prev => ({
+        ...prev,
+        signups: prev.signups.filter(s => s.id !== id),
+        total: prev.total - 1
+      }));
+    } catch { /* silent */ }
+  };
+
+  const handleConvertToSubscriber = (signup) => {
+    // Pre-fill the Add Subscriber form with their waitlist data
+    setSubForm({
+      name: signup.name || '',
+      email: signup.email || '',
+      password: '',
+      market: ''
+    });
+    setActiveTab('subscribers');
+    showMsg('success', `Pre-filled from ${signup.name}'s waitlist entry — set a password and market to finish.`);
   };
 
   const inputClass = "w-full bg-bg border border-subtle rounded-xl px-4 py-2.5 text-white text-sm placeholder-muted focus:outline-none focus:border-accent transition-colors";
@@ -803,10 +850,11 @@ export default function Admin() {
                       </div>
                       <button
                         onClick={() => {
-                          const cols = ['Name','Email','Phone','City','Monthly Revenue','Lead Sources','Lead Spend','Signed Up'];
+                          const cols = ['Name','Email','Phone','City','Monthly Revenue','Lead Sources','Lead Spend','Status','Notes','Signed Up'];
                           const rows = waitlistData.signups.map(s => [
                             s.name, s.email, s.phone||'', s.city,
-                            s.monthlyRevenue||'', s.leadSources||'', s.monthlyLeadSpend||'', s.createdAt||''
+                            s.monthlyRevenue||'', s.leadSources||'', s.monthlyLeadSpend||'',
+                            s.status||'new', s.notes||'', s.createdAt||''
                           ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
                           const blob = new Blob([[cols.join(','),...rows].join('\n')], { type: 'text/csv' });
                           const a = document.createElement('a');
@@ -852,39 +900,105 @@ export default function Admin() {
                         </p>
                       </div>
                     ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm min-w-[700px]">
-                          <thead>
-                            <tr className="border-b border-subtle text-muted">
-                              <th className="text-left py-3 pr-4 font-medium">Name</th>
-                              <th className="text-left py-3 pr-4 font-medium">Email</th>
-                              <th className="text-left py-3 pr-4 font-medium">Phone</th>
-                              <th className="text-left py-3 pr-4 font-medium">City</th>
-                              <th className="text-left py-3 pr-4 font-medium">Revenue</th>
-                              <th className="text-left py-3 pr-4 font-medium">Lead Sources</th>
-                              <th className="text-left py-3 font-medium">Signed Up</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {waitlistData.signups.map(s => (
-                              <tr key={s.id} className="border-b border-subtle/50 hover:bg-surface/60 transition-colors">
-                                <td className="py-3 pr-4 text-white font-medium">{s.name}</td>
-                                <td className="py-3 pr-4 text-muted">{s.email}</td>
-                                <td className="py-3 pr-4 text-muted">{s.phone || '—'}</td>
-                                <td className="py-3 pr-4">
-                                  <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 border border-accent/20 text-accent">
-                                    {s.city}
-                                  </span>
-                                </td>
-                                <td className="py-3 pr-4 text-muted text-xs">{s.monthlyRevenue || '—'}</td>
-                                <td className="py-3 pr-4 text-muted text-xs">{s.leadSources || '—'}</td>
-                                <td className="py-3 text-muted text-xs">
-                                  {s.createdAt ? new Date(s.createdAt).toLocaleDateString() : '—'}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                      <div className="space-y-3">
+                        {waitlistData.signups.map(s => {
+                          const statusColors = {
+                            new:       'bg-blue-500/10 border-blue-500/30 text-blue-400',
+                            contacted: 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400',
+                            committed: 'bg-purple-500/10 border-purple-500/30 text-purple-400',
+                            converted: 'bg-accent/10 border-accent/30 text-accent',
+                            passed:    'bg-surface border-subtle text-muted',
+                          };
+                          const statusLabel = {
+                            new: 'New', contacted: 'Contacted', committed: 'Committed',
+                            converted: 'Converted', passed: 'Passed'
+                          };
+                          const st = s.status || 'new';
+                          return (
+                            <div
+                              key={s.id}
+                              className={`bg-surface border rounded-xl p-4 transition-colors ${st === 'converted' ? 'border-accent/30' : 'border-subtle'}`}
+                            >
+                              {/* Top row */}
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="min-w-0">
+                                    <p className="text-white font-medium text-sm">{s.name}</p>
+                                    <p className="text-muted text-xs">{s.email}{s.phone ? ` · ${s.phone}` : ''}</p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                  {/* Status dropdown */}
+                                  <select
+                                    value={st}
+                                    onChange={e => handleWaitlistStatusChange(s.id, e.target.value)}
+                                    className={`text-xs px-2 py-1 rounded-full border bg-transparent font-medium cursor-pointer focus:outline-none ${statusColors[st]}`}
+                                  >
+                                    <option value="new">New</option>
+                                    <option value="contacted">Contacted</option>
+                                    <option value="committed">Committed</option>
+                                    <option value="converted">Converted</option>
+                                    <option value="passed">Passed</option>
+                                  </select>
+
+                                  {/* Convert button — only for non-converted */}
+                                  {st !== 'converted' && st !== 'passed' && (
+                                    <button
+                                      onClick={() => handleConvertToSubscriber(s)}
+                                      className="text-xs px-3 py-1 rounded-lg bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 transition-colors font-medium"
+                                    >
+                                      + Convert
+                                    </button>
+                                  )}
+
+                                  {/* Delete */}
+                                  <button
+                                    onClick={() => handleWaitlistDelete(s.id)}
+                                    className="text-xs px-2 py-1 rounded-lg text-muted hover:text-red-400 transition-colors"
+                                    title="Remove from waitlist"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Detail row */}
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted">
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 border border-accent/20 text-accent">{s.city}</span>
+                                {s.monthlyRevenue && <span>Rev: {s.monthlyRevenue}</span>}
+                                {s.monthlyLeadSpend && <span>Lead spend: {s.monthlyLeadSpend}</span>}
+                                {s.leadSources && <span>Via: {s.leadSources}</span>}
+                                <span>{s.createdAt ? new Date(s.createdAt).toLocaleDateString() : ''}</span>
+                              </div>
+
+                              {/* Notes row */}
+                              <div className="mt-2">
+                                {waitlistNoteEditing === s.id ? (
+                                  <div className="flex gap-2 items-center">
+                                    <input
+                                      autoFocus
+                                      value={waitlistNoteVal}
+                                      onChange={e => setWaitlistNoteVal(e.target.value)}
+                                      onKeyDown={e => { if (e.key === 'Enter') handleWaitlistNoteSave(s.id); if (e.key === 'Escape') setWaitlistNoteEditing(null); }}
+                                      placeholder="Add a note…"
+                                      className="flex-1 bg-bg border border-subtle rounded-lg px-3 py-1.5 text-white text-xs placeholder-muted focus:outline-none focus:border-accent"
+                                    />
+                                    <button onClick={() => handleWaitlistNoteSave(s.id)} className="text-xs text-accent hover:text-white transition-colors font-medium">Save</button>
+                                    <button onClick={() => setWaitlistNoteEditing(null)} className="text-xs text-muted hover:text-white transition-colors">Cancel</button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => { setWaitlistNoteEditing(s.id); setWaitlistNoteVal(s.notes || ''); }}
+                                    className="text-xs text-muted hover:text-white transition-colors text-left"
+                                  >
+                                    {s.notes ? <span className="text-white/70">{s.notes}</span> : <span className="italic">+ add note</span>}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
